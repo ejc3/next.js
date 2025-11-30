@@ -1,8 +1,7 @@
 use anyhow::Result;
 use turbo_rcstr::{RcStr, rcstr};
 use turbo_tasks::{ResolvedVc, ValueToString, Vc};
-use turbo_tasks_fs::{FileContent, glob::Glob};
-use turbopack::css::chunk::CssChunkPlaceable;
+use turbo_tasks_fs::FileContent;
 use turbopack_core::{
     asset::{Asset, AssetContent},
     chunk::{ChunkGroupType, ChunkableModuleReference, ChunkingType, ChunkingTypeOption},
@@ -59,7 +58,7 @@ impl Module for CssClientReferenceModule {
         )]))
     }
     #[turbo_tasks::function]
-    fn side_effects(self: Vc<Self>, _side_effect_free_packages: Vc<Glob>) -> Vc<ModuleSideEffects> {
+    fn side_effects(self: Vc<Self>) -> Vc<ModuleSideEffects> {
         ModuleSideEffects::SideEffectful.cell()
     }
 }
