@@ -296,7 +296,6 @@ async fn apply_module_type(
     if tree_shaking_mode.is_some() && is_evaluation {
         // If we are tree shaking, skip the evaluation part if the module is marked as
         // side effect free.
-
         if *module.side_effects().await? == ModuleSideEffects::SideEffectFree {
             return Ok(ProcessResult::Ignore.cell());
         }
