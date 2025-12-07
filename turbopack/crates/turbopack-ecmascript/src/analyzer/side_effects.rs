@@ -336,7 +336,6 @@ impl<'a> SideEffectVisitor<'a> {
     }
 
     /// Check if a span has a `/*#__PURE__*/` or `/*@__PURE__*/` annotation.
-
     fn is_pure_annotated(&self, span: swc_core::common::Span) -> bool {
         self.comments.has_flag(span.lo, "PURE")
     }
