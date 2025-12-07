@@ -55,7 +55,7 @@ use path_visitor::ApplyVisitors;
 use references::esm::UrlRewriteBehavior;
 pub use references::{AnalyzeEcmascriptModuleResult, TURBOPACK_HELPER};
 use rustc_hash::{FxHashMap, FxHashSet};
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use smallvec::SmallVec;
 pub use static_code::StaticEcmascriptCode;
 use swc_core::{
@@ -112,13 +112,13 @@ use turbopack_core::{
     source::Source,
     source_map::GenerateSourceMap,
 };
-// TODO remove this
-pub use turbopack_resolve::ecmascript as resolve;
 
-use self::chunk::{EcmascriptChunkItemContent, EcmascriptChunkType, EcmascriptExports};
 use crate::{
     analyzer::graph::EvalContext,
-    chunk::{EcmascriptChunkPlaceable, placeable::is_marked_as_side_effect_free},
+    chunk::{
+        EcmascriptChunkItemContent, EcmascriptChunkPlaceable, EcmascriptChunkType,
+        EcmascriptExports, placeable::is_marked_as_side_effect_free,
+    },
     code_gen::{CodeGens, ModifiableAst},
     merged_module::MergedEcmascriptModule,
     parse::generate_js_source_map,
@@ -143,7 +143,6 @@ use crate::{
     TaskInput,
     TraceRawVcs,
     NonLocalValue,
-    Serialize,
     Deserialize,
     Encode,
     Decode,
@@ -165,7 +164,6 @@ pub enum SpecifiedModuleType {
     Clone,
     Copy,
     Default,
-    Serialize,
     Deserialize,
     TaskInput,
     TraceRawVcs,
@@ -190,7 +188,6 @@ pub enum TreeShakingMode {
     Clone,
     Copy,
     Default,
-    Serialize,
     Deserialize,
     TaskInput,
     TraceRawVcs,
@@ -229,19 +226,7 @@ pub struct OptionTreeShaking(pub Option<TreeShakingMode>);
 
 /// The constant to replace `typeof window` with.
 #[derive(
-    Copy,
-    Clone,
-    PartialEq,
-    Eq,
-    Debug,
-    Hash,
-    Serialize,
-    Deserialize,
-    TraceRawVcs,
-    NonLocalValue,
-    TaskInput,
-    Encode,
-    Decode,
+    Copy, Clone, PartialEq, Eq, Debug, Hash, TraceRawVcs, NonLocalValue, TaskInput, Encode, Decode,
 )]
 pub enum TypeofWindow {
     Object,
