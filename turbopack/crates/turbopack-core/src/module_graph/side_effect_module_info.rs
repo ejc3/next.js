@@ -77,23 +77,23 @@ async fn compute_side_effect_free_module_info_single(
         }),
         &mut (),
         // child is a previously visited module that we know is side effectful
-        |child, _parent, _s| {
-            Ok(if let Some((child_module, _edge)) = child {
-                match module_side_effects.get(&child_module).unwrap() {
+        // parent is a module that depends on it.
+        |child, parent, _s| {
+            Ok(if child.is_some() {
+                match module_side_effects.get(&parent).unwrap() {
                     ModuleSideEffects::SideEffectful | ModuleSideEffects::SideEffectFree => {
                         // We have either already seen this or don't want to follow it
                         GraphTraversalAction::Exclude
                     }
                     ModuleSideEffects::ModuleEvaluationIsSideEffectFree => {
-                        // this module is side effect free locally but must depend on something
-                        // effectful so it to is effectful
-                        locally_side_effect_free_modules_that_have_side_effects
-                            .insert(child_module);
+                        // this module is side effect free locally but depends on `child` which is
+                        // effectful so it too is effectful
+                        locally_side_effect_free_modules_that_have_side_effects.insert(parent);
                         GraphTraversalAction::Continue
                     }
                 }
             } else {
-                // entry point, keep going
+                // entry point, we already determined it was effectful, keep going
                 GraphTraversalAction::Continue
             })
         },
