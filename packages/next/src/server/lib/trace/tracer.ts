@@ -487,5 +487,5 @@ const getTracer = (() => {
   return () => tracer
 })()
 
-export { getTracer, SpanStatusCode, SpanKind }
+export { getTracer, SpanStatusCode, SpanKind, context, trace }
 export type { NextTracer, Span, SpanOptions, ContextAPI, TracerSpanOptions }

@@ -1,6 +1,7 @@
 import type { ErrorInfo } from 'react'
-
+import type { Span } from '@opentelemetry/api'
 import stringHash from 'next/dist/compiled/string-hash'
+
 import { formatServerError } from '../../lib/format-server-error'
 import { SpanStatusCode, getTracer } from '../lib/trace/tracer'
 import { isAbortError } from '../pipe-readable'
@@ -52,7 +53,8 @@ export function createReactServerErrorHandler(
   shouldFormatError: boolean,
   isNextExport: boolean,
   reactServerErrors: Map<string, DigestedError>,
-  onReactServerRenderError: (err: DigestedError, silenceLog: boolean) => void
+  onReactServerRenderError: (err: DigestedError, silenceLog: boolean) => void,
+  spanToRecordOn?: Span
 ): RSCErrorHandler {
   return (thrownValue: unknown) => {
     if (typeof thrownValue === 'string') {
@@ -125,8 +127,8 @@ export function createReactServerErrorHandler(
         )
       )
     ) {
-      // Record exception in an active span, if available.
-      const span = getTracer().getActiveScopeSpan()
+      // Record exception on the provided span if available, otherwise try active span.
+      const span = spanToRecordOn ?? getTracer().getActiveScopeSpan()
       if (span) {
         span.recordException(err)
         span.setAttribute('error.type', err.name)
@@ -148,7 +150,8 @@ export function createHTMLErrorHandler(
   isNextExport: boolean,
   reactServerErrors: Map<string, DigestedError>,
   allCapturedErrors: Array<unknown>,
-  onHTMLRenderSSRError: (err: DigestedError, errorInfo?: ErrorInfo) => void
+  onHTMLRenderSSRError: (err: DigestedError, errorInfo?: ErrorInfo) => void,
+  spanToRecordOn?: Span
 ): SSRErrorHandler {
   return (thrownValue: unknown, errorInfo?: ErrorInfo) => {
     if (isReactLargeShellError(thrownValue)) {
@@ -207,8 +210,8 @@ export function createHTMLErrorHandler(
         )
       )
     ) {
-      // Record exception in an active span, if available.
-      const span = getTracer().getActiveScopeSpan()
+      // Record exception on the provided span if available, otherwise try active span.
+      const span = spanToRecordOn ?? getTracer().getActiveScopeSpan()
       if (span) {
         span.recordException(err)
         span.setAttribute('error.type', err.name)
