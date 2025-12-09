@@ -348,6 +348,15 @@ export class AnalyzeData {
     return totalSize
   }
 
+  getSourceRecursiveSize(index: SourceIndex): number {
+    let totalSize = this.getSourceOutputSize(index)
+    const children = this.sourceChildren(index)
+    for (const childIndex of children) {
+      totalSize += this.getSourceRecursiveSize(childIndex)
+    }
+    return totalSize
+  }
+
   sourceChunks(index: SourceIndex): string[] {
     const chunkParts = this.sourceChunkParts(index)
     const uniqueChunks = new Set<string>()

@@ -158,6 +158,11 @@ export default function Home() {
     selectedSourceIndex
   )
 
+  const selectedSource =
+    selectedSourceIndex != null
+      ? analyzeData?.source(selectedSourceIndex)
+      : undefined
+
   return (
     <main
       className="h-screen flex flex-col bg-background"
@@ -255,9 +260,6 @@ export default function Home() {
               style={{ width: `${sidebarWidth}%` }}
             >
               <div className="flex-1 p-3 space-y-4 overflow-y-auto">
-                <h2 className="text-xs font-semibold mb-2 text-foreground">
-                  Selected Source
-                </h2>
                 <Skeleton className="h-4 w-3/4" />
                 <Skeleton className="h-4 w-full" />
                 <Skeleton className="h-4 w-5/6" />
@@ -298,47 +300,59 @@ export default function Home() {
               className="flex-none bg-muted border-l border-border overflow-y-auto"
               style={{ width: `${sidebarWidth}%` }}
             >
-              <div className="flex-1 p-3 space-y-4 overflow-y-auto">
-                <h2 className="text-xs font-semibold mb-2 text-foreground">
-                  Selected Source
-                </h2>
+              <div className="flex-1 p-3 space-y-8 overflow-y-auto">
+                <div className="space-y-4">
+                  <h2 className="text-s font-semibold mb-1 text-foreground truncate">
+                    {selectedSource
+                      ? selectedSource.path || 'All Route Modules'
+                      : 'Unknown Source'}
+                  </h2>
+                  {selectedSourceIndex != null &&
+                  analyzeData.source(selectedSourceIndex) ? (
+                    <>
+                      <div className="text-xs">
+                        <span>
+                          {analyzeData.sourceChildren(selectedSourceIndex)
+                            .length > 0
+                            ? formatBytes(
+                                analyzeData.getSourceRecursiveSize(
+                                  selectedSourceIndex
+                                )
+                              )
+                            : formatBytes(
+                                analyzeData.getSourceOutputSize(
+                                  selectedSourceIndex
+                                )
+                              )}
+                        </span>{' '}
+                        <span className="text-muted-foreground">bundled</span>
+                      </div>
+                      {(specialModuleType === SpecialModule.POLYFILL_MODULE ||
+                        specialModuleType ===
+                          SpecialModule.POLYFILL_NOMODULE) && (
+                        <div className="flex items-center gap-2">
+                          <dt className="inline-flex items-center rounded-md bg-polyfill/10 dark:bg-polyfill/30 px-2 py-1 text-xs font-medium text-polyfill dark:text-polyfill-foreground ring-1 ring-inset ring-polyfill/20 shrink-0">
+                            Polyfill
+                          </dt>
+                          <dd className="text-xs text-muted-foreground">
+                            Next.js built-in polyfills
+                            {specialModuleType ===
+                            SpecialModule.POLYFILL_NOMODULE ? (
+                              <>
+                                . <code>polyfill-nomodule.js</code> is only sent
+                                to legacy browsers.
+                              </>
+                            ) : null}
+                          </dd>
+                        </div>
+                      )}
+                    </>
+                  ) : null}
+                </div>
 
                 {selectedSourceIndex != null &&
                   analyzeData.source(selectedSourceIndex) && (
                     <>
-                      <dl className="space-y-2">
-                        <div>
-                          <dt className="text-xs text-muted-foreground inline">
-                            Output Size:{' '}
-                          </dt>
-                          <dd className="text-xs text-muted-foreground inline">
-                            {formatBytes(
-                              analyzeData.getSourceOutputSize(
-                                selectedSourceIndex
-                              )
-                            )}
-                          </dd>
-                        </div>
-                        {(specialModuleType === SpecialModule.POLYFILL_MODULE ||
-                          specialModuleType ===
-                            SpecialModule.POLYFILL_NOMODULE) && (
-                          <div className="flex items-center gap-2">
-                            <dt className="inline-flex items-center rounded-md bg-polyfill/10 dark:bg-polyfill/30 px-2 py-1 text-xs font-medium text-polyfill dark:text-polyfill-foreground ring-1 ring-inset ring-polyfill/20 shrink-0">
-                              Polyfill
-                            </dt>
-                            <dd className="text-xs text-muted-foreground">
-                              Next.js built-in polyfills
-                              {specialModuleType ===
-                              SpecialModule.POLYFILL_NOMODULE ? (
-                                <>
-                                  . <code>polyfill-nomodule.js</code> is only
-                                  sent to legacy browsers.
-                                </>
-                              ) : null}
-                            </dd>
-                          </div>
-                        )}
-                      </dl>
                       {modulesData && (
                         <ImportChain
                           key={selectedSourceIndex}
@@ -356,7 +370,7 @@ export default function Home() {
                           return (
                             <div className="mt-2">
                               <p className="text-xs font-semibold text-foreground">
-                                Output Chunks:
+                                Output Chunks
                               </p>
                               <ul className="text-xs text-muted-foreground font-mono mt-1 space-y-1">
                                 {chunks.map((chunk) => (
