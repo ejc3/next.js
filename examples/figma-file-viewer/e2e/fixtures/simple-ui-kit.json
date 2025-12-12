@@ -1,0 +1,176 @@
+{
+  "name": "Simple UI Kit",
+  "document": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "1:0",
+        "name": "Components",
+        "type": "CANVAS",
+        "backgroundColor": { "r": 0.95, "g": 0.95, "b": 0.95, "a": 1 },
+        "children": [
+          {
+            "id": "2:0",
+            "name": "Button/Primary",
+            "type": "COMPONENT",
+            "visible": true,
+            "absoluteBoundingBox": { "x": 0, "y": 0, "width": 120, "height": 40 },
+            "size": { "x": 120, "y": 40 },
+            "fills": [{ "type": "SOLID", "color": { "r": 0.26, "g": 0.52, "b": 0.96, "a": 1 } }],
+            "cornerRadius": 8,
+            "layoutMode": "HORIZONTAL",
+            "primaryAxisAlignItems": "CENTER",
+            "counterAxisAlignItems": "CENTER",
+            "paddingLeft": 16,
+            "paddingRight": 16,
+            "paddingTop": 10,
+            "paddingBottom": 10,
+            "children": [
+              {
+                "id": "2:1",
+                "name": "Label",
+                "type": "TEXT",
+                "characters": "Click Me",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 600,
+                  "fontSize": 14,
+                  "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }]
+              }
+            ]
+          },
+          {
+            "id": "3:0",
+            "name": "Button/Secondary",
+            "type": "COMPONENT",
+            "visible": true,
+            "absoluteBoundingBox": { "x": 140, "y": 0, "width": 120, "height": 40 },
+            "size": { "x": 120, "y": 40 },
+            "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+            "strokes": [{ "type": "SOLID", "color": { "r": 0.8, "g": 0.8, "b": 0.8, "a": 1 } }],
+            "strokeWeight": 1,
+            "cornerRadius": 8,
+            "layoutMode": "HORIZONTAL",
+            "primaryAxisAlignItems": "CENTER",
+            "counterAxisAlignItems": "CENTER",
+            "paddingLeft": 16,
+            "paddingRight": 16,
+            "children": [
+              {
+                "id": "3:1",
+                "name": "Label",
+                "type": "TEXT",
+                "characters": "Cancel",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 500,
+                  "fontSize": 14,
+                  "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.2, "a": 1 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.2, "a": 1 } }]
+              }
+            ]
+          },
+          {
+            "id": "4:0",
+            "name": "Input Field",
+            "type": "COMPONENT",
+            "visible": true,
+            "absoluteBoundingBox": { "x": 0, "y": 60, "width": 280, "height": 44 },
+            "size": { "x": 280, "y": 44 },
+            "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+            "strokes": [{ "type": "SOLID", "color": { "r": 0.85, "g": 0.85, "b": 0.85, "a": 1 } }],
+            "strokeWeight": 1,
+            "cornerRadius": 6,
+            "layoutMode": "HORIZONTAL",
+            "counterAxisAlignItems": "CENTER",
+            "paddingLeft": 12,
+            "paddingRight": 12,
+            "children": [
+              {
+                "id": "4:1",
+                "name": "Placeholder",
+                "type": "TEXT",
+                "characters": "Enter your email...",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 14,
+                  "fills": [{ "type": "SOLID", "color": { "r": 0.6, "g": 0.6, "b": 0.6, "a": 1 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.6, "g": 0.6, "b": 0.6, "a": 1 } }]
+              }
+            ]
+          },
+          {
+            "id": "5:0",
+            "name": "Card",
+            "type": "COMPONENT",
+            "visible": true,
+            "absoluteBoundingBox": { "x": 0, "y": 120, "width": 300, "height": 200 },
+            "size": { "x": 300, "y": 200 },
+            "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+            "cornerRadius": 12,
+            "effects": [
+              {
+                "type": "DROP_SHADOW",
+                "visible": true,
+                "color": { "r": 0, "g": 0, "b": 0, "a": 0.1 },
+                "offset": { "x": 0, "y": 4 },
+                "radius": 12,
+                "spread": 0
+              }
+            ],
+            "layoutMode": "VERTICAL",
+            "paddingLeft": 20,
+            "paddingRight": 20,
+            "paddingTop": 20,
+            "paddingBottom": 20,
+            "itemSpacing": 12,
+            "children": [
+              {
+                "id": "5:1",
+                "name": "Card Title",
+                "type": "TEXT",
+                "characters": "Card Title",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 600,
+                  "fontSize": 18,
+                  "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+              },
+              {
+                "id": "5:2",
+                "name": "Card Description",
+                "type": "TEXT",
+                "characters": "This is a sample card component with a title and description text that demonstrates the layout capabilities.",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 14,
+                  "lineHeightPx": 20,
+                  "fills": [{ "type": "SOLID", "color": { "r": 0.4, "g": 0.4, "b": 0.4, "a": 1 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.4, "g": 0.4, "b": 0.4, "a": 1 } }]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "components": {
+    "2:0": { "key": "btn-primary", "name": "Button/Primary", "description": "Primary action button" },
+    "3:0": { "key": "btn-secondary", "name": "Button/Secondary", "description": "Secondary action button" },
+    "4:0": { "key": "input-field", "name": "Input Field", "description": "Text input field" },
+    "5:0": { "key": "card", "name": "Card", "description": "Content card container" }
+  },
+  "schemaVersion": 0,
+  "version": "1.0.0"
+}

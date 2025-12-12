@@ -1,0 +1,343 @@
+{
+  "name": "Multi-Page Website Design",
+  "document": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "1:0",
+        "name": "Home Page",
+        "type": "CANVAS",
+        "backgroundColor": { "r": 1, "g": 1, "b": 1, "a": 1 },
+        "children": [
+          {
+            "id": "10:0",
+            "name": "Hero Section",
+            "type": "FRAME",
+            "visible": true,
+            "absoluteBoundingBox": { "x": 0, "y": 0, "width": 1440, "height": 600 },
+            "fills": [
+              {
+                "type": "GRADIENT_LINEAR",
+                "gradientHandlePositions": [
+                  { "x": 0, "y": 0 },
+                  { "x": 1, "y": 1 }
+                ],
+                "gradientStops": [
+                  { "position": 0, "color": { "r": 0.38, "g": 0.2, "b": 0.8, "a": 1 } },
+                  { "position": 1, "color": { "r": 0.6, "g": 0.2, "b": 0.6, "a": 1 } }
+                ]
+              }
+            ],
+            "layoutMode": "VERTICAL",
+            "primaryAxisAlignItems": "CENTER",
+            "counterAxisAlignItems": "CENTER",
+            "itemSpacing": 24,
+            "children": [
+              {
+                "id": "10:1",
+                "name": "Hero Title",
+                "type": "TEXT",
+                "characters": "Welcome to Our Platform",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 700,
+                  "fontSize": 56,
+                  "textAlignHorizontal": "CENTER",
+                  "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }]
+              },
+              {
+                "id": "10:2",
+                "name": "Hero Subtitle",
+                "type": "TEXT",
+                "characters": "Build amazing products with our powerful tools and resources.",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 20,
+                  "textAlignHorizontal": "CENTER",
+                  "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 0.8 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 0.8 } }]
+              },
+              {
+                "id": "10:3",
+                "name": "CTA Button",
+                "type": "INSTANCE",
+                "componentId": "btn-primary",
+                "absoluteBoundingBox": { "x": 660, "y": 400, "width": 160, "height": 48 },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+                "cornerRadius": 24,
+                "children": [
+                  {
+                    "id": "10:4",
+                    "name": "Label",
+                    "type": "TEXT",
+                    "characters": "Get Started",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontWeight": 600,
+                      "fontSize": 16,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.38, "g": 0.2, "b": 0.8, "a": 1 } }]
+                    },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.38, "g": 0.2, "b": 0.8, "a": 1 } }]
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "id": "11:0",
+            "name": "Features Section",
+            "type": "FRAME",
+            "visible": true,
+            "absoluteBoundingBox": { "x": 0, "y": 600, "width": 1440, "height": 500 },
+            "fills": [{ "type": "SOLID", "color": { "r": 0.98, "g": 0.98, "b": 0.98, "a": 1 } }],
+            "layoutMode": "VERTICAL",
+            "paddingTop": 80,
+            "paddingBottom": 80,
+            "itemSpacing": 48,
+            "counterAxisAlignItems": "CENTER",
+            "children": [
+              {
+                "id": "11:1",
+                "name": "Section Title",
+                "type": "TEXT",
+                "characters": "Our Features",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 700,
+                  "fontSize": 40,
+                  "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+              },
+              {
+                "id": "11:2",
+                "name": "Features Grid",
+                "type": "FRAME",
+                "layoutMode": "HORIZONTAL",
+                "itemSpacing": 32,
+                "children": [
+                  {
+                    "id": "12:0",
+                    "name": "Feature Card 1",
+                    "type": "FRAME",
+                    "absoluteBoundingBox": { "x": 120, "y": 780, "width": 380, "height": 200 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+                    "cornerRadius": 16,
+                    "effects": [{ "type": "DROP_SHADOW", "visible": true, "color": { "r": 0, "g": 0, "b": 0, "a": 0.05 }, "offset": { "x": 0, "y": 2 }, "radius": 8 }],
+                    "layoutMode": "VERTICAL",
+                    "paddingLeft": 24,
+                    "paddingRight": 24,
+                    "paddingTop": 24,
+                    "paddingBottom": 24,
+                    "itemSpacing": 12,
+                    "children": [
+                      {
+                        "id": "12:1",
+                        "name": "Icon",
+                        "type": "ELLIPSE",
+                        "absoluteBoundingBox": { "x": 144, "y": 804, "width": 48, "height": 48 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.38, "g": 0.2, "b": 0.8, "a": 0.1 } }]
+                      },
+                      {
+                        "id": "12:2",
+                        "name": "Feature Title",
+                        "type": "TEXT",
+                        "characters": "Fast Performance",
+                        "style": { "fontFamily": "Inter", "fontWeight": 600, "fontSize": 18 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+                      },
+                      {
+                        "id": "12:3",
+                        "name": "Feature Description",
+                        "type": "TEXT",
+                        "characters": "Lightning fast load times and smooth interactions.",
+                        "style": { "fontFamily": "Inter", "fontWeight": 400, "fontSize": 14, "lineHeightPx": 20 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.5, "g": 0.5, "b": 0.5, "a": 1 } }]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "13:0",
+                    "name": "Feature Card 2",
+                    "type": "FRAME",
+                    "absoluteBoundingBox": { "x": 532, "y": 780, "width": 380, "height": 200 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+                    "cornerRadius": 16,
+                    "effects": [{ "type": "DROP_SHADOW", "visible": true, "color": { "r": 0, "g": 0, "b": 0, "a": 0.05 }, "offset": { "x": 0, "y": 2 }, "radius": 8 }],
+                    "layoutMode": "VERTICAL",
+                    "paddingLeft": 24,
+                    "paddingRight": 24,
+                    "paddingTop": 24,
+                    "paddingBottom": 24,
+                    "itemSpacing": 12,
+                    "children": [
+                      {
+                        "id": "13:1",
+                        "name": "Icon",
+                        "type": "ELLIPSE",
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.8, "b": 0.4, "a": 0.1 } }]
+                      },
+                      {
+                        "id": "13:2",
+                        "name": "Feature Title",
+                        "type": "TEXT",
+                        "characters": "Secure by Default",
+                        "style": { "fontFamily": "Inter", "fontWeight": 600, "fontSize": 18 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+                      },
+                      {
+                        "id": "13:3",
+                        "name": "Feature Description",
+                        "type": "TEXT",
+                        "characters": "Enterprise-grade security built into every layer.",
+                        "style": { "fontFamily": "Inter", "fontWeight": 400, "fontSize": 14, "lineHeightPx": 20 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.5, "g": 0.5, "b": 0.5, "a": 1 } }]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "14:0",
+                    "name": "Feature Card 3",
+                    "type": "FRAME",
+                    "absoluteBoundingBox": { "x": 944, "y": 780, "width": 380, "height": 200 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+                    "cornerRadius": 16,
+                    "effects": [{ "type": "DROP_SHADOW", "visible": true, "color": { "r": 0, "g": 0, "b": 0, "a": 0.05 }, "offset": { "x": 0, "y": 2 }, "radius": 8 }],
+                    "layoutMode": "VERTICAL",
+                    "paddingLeft": 24,
+                    "paddingRight": 24,
+                    "paddingTop": 24,
+                    "paddingBottom": 24,
+                    "itemSpacing": 12,
+                    "children": [
+                      {
+                        "id": "14:1",
+                        "name": "Icon",
+                        "type": "RECTANGLE",
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.96, "g": 0.6, "b": 0.2, "a": 0.1 } }],
+                        "cornerRadius": 8
+                      },
+                      {
+                        "id": "14:2",
+                        "name": "Feature Title",
+                        "type": "TEXT",
+                        "characters": "Easy Integration",
+                        "style": { "fontFamily": "Inter", "fontWeight": 600, "fontSize": 18 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+                      },
+                      {
+                        "id": "14:3",
+                        "name": "Feature Description",
+                        "type": "TEXT",
+                        "characters": "Connect with your favorite tools in minutes.",
+                        "style": { "fontFamily": "Inter", "fontWeight": 400, "fontSize": 14, "lineHeightPx": 20 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.5, "g": 0.5, "b": 0.5, "a": 1 } }]
+                      }
+                    ]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "2:0",
+        "name": "About Page",
+        "type": "CANVAS",
+        "backgroundColor": { "r": 1, "g": 1, "b": 1, "a": 1 },
+        "children": [
+          {
+            "id": "20:0",
+            "name": "About Header",
+            "type": "FRAME",
+            "visible": true,
+            "absoluteBoundingBox": { "x": 0, "y": 0, "width": 1440, "height": 300 },
+            "fills": [{ "type": "SOLID", "color": { "r": 0.05, "g": 0.05, "b": 0.1, "a": 1 } }],
+            "layoutMode": "VERTICAL",
+            "primaryAxisAlignItems": "CENTER",
+            "counterAxisAlignItems": "CENTER",
+            "children": [
+              {
+                "id": "20:1",
+                "name": "About Title",
+                "type": "TEXT",
+                "characters": "About Us",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 700,
+                  "fontSize": 48,
+                  "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }]
+              },
+              {
+                "id": "20:2",
+                "name": "About Subtitle",
+                "type": "TEXT",
+                "characters": "Learn more about our mission and team",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 18,
+                  "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 0.7 } }]
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 0.7 } }]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "3:0",
+        "name": "Contact Page",
+        "type": "CANVAS",
+        "backgroundColor": { "r": 0.98, "g": 0.98, "b": 0.98, "a": 1 },
+        "children": [
+          {
+            "id": "30:0",
+            "name": "Contact Form",
+            "type": "FRAME",
+            "visible": true,
+            "absoluteBoundingBox": { "x": 420, "y": 100, "width": 600, "height": 500 },
+            "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+            "cornerRadius": 16,
+            "effects": [{ "type": "DROP_SHADOW", "visible": true, "color": { "r": 0, "g": 0, "b": 0, "a": 0.1 }, "offset": { "x": 0, "y": 8 }, "radius": 24 }],
+            "layoutMode": "VERTICAL",
+            "paddingLeft": 40,
+            "paddingRight": 40,
+            "paddingTop": 40,
+            "paddingBottom": 40,
+            "itemSpacing": 24,
+            "children": [
+              {
+                "id": "30:1",
+                "name": "Form Title",
+                "type": "TEXT",
+                "characters": "Get in Touch",
+                "style": { "fontFamily": "Inter", "fontWeight": 700, "fontSize": 32 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+              },
+              {
+                "id": "30:2",
+                "name": "Form Description",
+                "type": "TEXT",
+                "characters": "We'd love to hear from you. Send us a message!",
+                "style": { "fontFamily": "Inter", "fontWeight": 400, "fontSize": 16 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.5, "g": 0.5, "b": 0.5, "a": 1 } }]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "schemaVersion": 0,
+  "version": "1.0.0"
+}
