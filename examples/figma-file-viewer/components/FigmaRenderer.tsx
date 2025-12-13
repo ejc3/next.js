@@ -263,6 +263,7 @@ interface FigmaRendererProps {
   scale?: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string) => void;
   renderMode?: "absolute" | "flow";
   showOutlines?: boolean;
   parentBounds?: Rectangle; // Parent's bounding box for relative positioning
@@ -385,6 +386,7 @@ export function FigmaRenderer({
   scale = 1,
   selectedId,
   onNodeClick,
+  onPrototypeNavigate,
   renderMode = "absolute",
   showOutlines = false,
   parentBounds,
@@ -392,9 +394,27 @@ export function FigmaRenderer({
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
+
+      // Check if this node has prototype interactions
+      const interactions = (node as any).prototypeInteractions;
+      if (interactions && interactions.length > 0 && onPrototypeNavigate) {
+        // Find ON_CLICK interaction
+        const clickInteraction = interactions.find(
+          (i: any) => i.event?.interactionType === "ON_CLICK"
+        );
+        if (clickInteraction && clickInteraction.actions?.[0]) {
+          const action = clickInteraction.actions[0];
+          if (action.transitionNodeID) {
+            e.preventDefault();
+            onPrototypeNavigate(action.transitionNodeID, action.transitionType);
+            return;
+          }
+        }
+      }
+
       onNodeClick?.(node);
     },
-    [node, onNodeClick]
+    [node, onNodeClick, onPrototypeNavigate]
   );
 
   // Skip invisible nodes
@@ -429,6 +449,7 @@ export function FigmaRenderer({
                 scale={scale}
                 selectedId={selectedId}
                 onNodeClick={onNodeClick}
+                onPrototypeNavigate={onPrototypeNavigate}
                 renderMode={renderMode}
                 showOutlines={showOutlines}
               />
@@ -443,6 +464,7 @@ export function FigmaRenderer({
           scale={scale}
           selectedId={selectedId}
           onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
           onClick={handleClick}
           wrapperStyle={getWrapperStyle()}
           renderMode={renderMode}
@@ -470,6 +492,7 @@ export function FigmaRenderer({
           scale={scale}
           selectedId={selectedId}
           onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
           onClick={handleClick}
           wrapperStyle={getWrapperStyle()}
           renderMode={renderMode}
@@ -489,6 +512,7 @@ export function FigmaRenderer({
           scale={scale}
           selectedId={selectedId}
           onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
           onClick={handleClick}
           wrapperStyle={getWrapperStyle()}
           renderMode={renderMode}
@@ -578,6 +602,7 @@ function CanvasRenderer({
   scale,
   selectedId,
   onNodeClick,
+  onPrototypeNavigate,
   onClick,
   wrapperStyle,
   renderMode,
@@ -587,6 +612,7 @@ function CanvasRenderer({
   scale: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string) => void;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
@@ -645,6 +671,7 @@ function CanvasRenderer({
           scale={1}
           selectedId={selectedId}
           onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
           renderMode={renderMode}
           showOutlines={showOutlines}
           parentBounds={{ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }}
@@ -662,6 +689,7 @@ function FrameRenderer({
   scale,
   selectedId,
   onNodeClick,
+  onPrototypeNavigate,
   onClick,
   wrapperStyle,
   renderMode,
@@ -672,6 +700,7 @@ function FrameRenderer({
   scale: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string) => void;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
@@ -820,6 +849,7 @@ function FrameRenderer({
           scale={1}
           selectedId={selectedId}
           onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
           renderMode={node.layoutMode && node.layoutMode !== "NONE" ? "flow" : renderMode}
           showOutlines={showOutlines}
           parentBounds={node.absoluteBoundingBox}
@@ -837,6 +867,7 @@ function GroupRenderer({
   scale,
   selectedId,
   onNodeClick,
+  onPrototypeNavigate,
   onClick,
   wrapperStyle,
   renderMode,
@@ -847,6 +878,7 @@ function GroupRenderer({
   scale: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string) => void;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
@@ -910,6 +942,7 @@ function GroupRenderer({
           scale={1}
           selectedId={selectedId}
           onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
           renderMode={renderMode}
           showOutlines={showOutlines}
           parentBounds={node.absoluteBoundingBox}

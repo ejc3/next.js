@@ -104,6 +104,32 @@ export default function FigmaViewerPage() {
     setSelectedNodeId(node.id);
   }, []);
 
+  // Handle prototype navigation
+  const handlePrototypeNavigate = useCallback(
+    (targetNodeId: string, transitionType?: string) => {
+      // Find the target node
+      const targetNode = parser.findNodeById(targetNodeId);
+      if (targetNode) {
+        // Select the target node
+        setSelectedNodeId(targetNodeId);
+
+        // Scroll to the target node
+        setTimeout(() => {
+          const element = document.querySelector(`[data-figma-id="${targetNodeId}"]`);
+          if (element) {
+            element.scrollIntoView({ behavior: "smooth", block: "center" });
+            // Add a brief highlight effect
+            element.classList.add("prototype-target-highlight");
+            setTimeout(() => {
+              element.classList.remove("prototype-target-highlight");
+            }, 1000);
+          }
+        }, 100);
+      }
+    },
+    [parser]
+  );
+
   // Reset viewer
   const handleReset = useCallback(() => {
     setFigmaFile(null);
@@ -301,6 +327,7 @@ export default function FigmaViewerPage() {
                           scale={scale}
                           selectedId={selectedNodeId}
                           onNodeClick={handleNodeClick}
+                          onPrototypeNavigate={handlePrototypeNavigate}
                           showOutlines={showOutlines}
                         />
                       )}
