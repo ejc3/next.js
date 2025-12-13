@@ -783,7 +783,36 @@ export class FigmaParser {
         letterSpacingUnit: change.letterSpacing?.units || "PIXELS",
         lineHeightPx: change.lineHeight?.units === "PIXELS" ? change.lineHeight.value : undefined,
         lineHeightPercent: change.lineHeight?.units === "PERCENT" ? change.lineHeight.value : undefined,
+        paragraphSpacing: change.paragraphSpacing || 0,
+        textDecoration: change.textDecoration || "NONE",
+        textCase: change.textCase || "ORIGINAL",
+        textAutoResize: change.textAutoResize || "NONE",
+        textTruncation: change.textTruncation || "DISABLED",
+        maxLines: change.maxLines,
       };
+
+      // Store node-level text properties
+      if (change.textAutoResize) {
+        node.textAutoResize = change.textAutoResize;
+      }
+      if (change.textTruncation) {
+        node.textTruncation = change.textTruncation;
+      }
+      if (change.maxLines !== undefined) {
+        node.maxLines = change.maxLines;
+      }
+
+      // Store baseline and glyph data for advanced rendering
+      if (change.textData?.baselines && change.textData.baselines.length > 0) {
+        node.textBaselines = change.textData.baselines.map((b: any) => ({
+          position: b.position,
+          width: b.width,
+          lineHeight: b.lineHeight,
+          lineAscent: b.lineAscent,
+          firstCharacter: b.firstCharacter,
+          endCharacter: b.endCharacter,
+        }));
+      }
     }
 
     // Handle corner radius - individual corners take priority

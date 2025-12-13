@@ -155,21 +155,37 @@ export type TextAutoResize = "NONE" | "HEIGHT" | "WIDTH_AND_HEIGHT" | "TRUNCATE"
 export type TextDecoration = "NONE" | "UNDERLINE" | "STRIKETHROUGH";
 export type TextCase = "ORIGINAL" | "UPPER" | "LOWER" | "TITLE" | "SMALL_CAPS" | "SMALL_CAPS_FORCED";
 export type LineHeightUnit = "PIXELS" | "FONT_SIZE_%" | "INTRINSIC_%";
+export type TextTruncation = "DISABLED" | "ENDING";
+
+export interface TextBaseline {
+  position: Vector;
+  width: number;
+  lineHeight: number;
+  lineAscent: number;
+  firstCharacter: number;
+  endCharacter: number;
+}
 
 export interface TypeStyle {
   fontFamily: string;
   fontPostScriptName?: string;
   fontWeight: number;
   fontSize: number;
+  fontStyle?: string;
   textAlignHorizontal?: TextAlignHorizontal;
   textAlignVertical?: TextAlignVertical;
   letterSpacing?: number;
+  letterSpacingUnit?: "PIXELS" | "PERCENT";
   lineHeightPx?: number;
   lineHeightPercent?: number;
   lineHeightPercentFontSize?: number;
   lineHeightUnit?: LineHeightUnit;
+  paragraphSpacing?: number;
   textDecoration?: TextDecoration;
   textCase?: TextCase;
+  textAutoResize?: TextAutoResize;
+  textTruncation?: TextTruncation;
+  maxLines?: number;
   fills?: Paint[];
   hyperlink?: Hyperlink;
   opentypeFlags?: { [key: string]: number };
@@ -481,6 +497,9 @@ export interface TextNode
   lineTypes?: ("ORDERED" | "UNORDERED" | "NONE")[];
   lineIndentations?: number[];
   textAutoResize?: TextAutoResize;
+  textTruncation?: TextTruncation;
+  maxLines?: number;
+  textBaselines?: TextBaseline[];
 }
 
 // Table Node

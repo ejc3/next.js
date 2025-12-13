@@ -701,6 +701,20 @@ function TextRenderer({
         case "JUSTIFIED": s.textAlign = "justify"; break;
       }
 
+      // Vertical text alignment using flexbox
+      if (ts.textAlignVertical && ts.textAlignVertical !== "TOP") {
+        s.display = "flex";
+        s.flexDirection = "column";
+        switch (ts.textAlignVertical) {
+          case "CENTER": s.justifyContent = "center"; break;
+          case "BOTTOM": s.justifyContent = "flex-end"; break;
+        }
+        // If we also have height set, use the full height
+        if (node.absoluteBoundingBox && renderMode === "absolute") {
+          s.height = node.absoluteBoundingBox.height * scale;
+        }
+      }
+
       // Text decoration
       switch (ts.textDecoration) {
         case "UNDERLINE": s.textDecoration = "underline"; break;
@@ -712,6 +726,27 @@ function TextRenderer({
         case "UPPER": s.textTransform = "uppercase"; break;
         case "LOWER": s.textTransform = "lowercase"; break;
         case "TITLE": s.textTransform = "capitalize"; break;
+        case "SMALL_CAPS":
+        case "SMALL_CAPS_FORCED":
+          s.fontVariant = "small-caps";
+          break;
+      }
+
+      // Text truncation with maxLines support
+      if (ts.textTruncation === "ENDING" || node.textTruncation === "ENDING") {
+        const maxLines = ts.maxLines || node.maxLines;
+        if (maxLines && maxLines > 1) {
+          // Multi-line truncation using CSS line-clamp
+          s.display = "-webkit-box";
+          (s as any).WebkitLineClamp = maxLines;
+          (s as any).WebkitBoxOrient = "vertical";
+          s.overflow = "hidden";
+        } else {
+          // Single line truncation
+          s.overflow = "hidden";
+          s.textOverflow = "ellipsis";
+          s.whiteSpace = "nowrap";
+        }
       }
 
       // Fill color for text
