@@ -491,6 +491,7 @@ export interface FrameNode
     LayoutMixin {
   type: "FRAME" | "COMPONENT" | "COMPONENT_SET" | "INSTANCE" | "SYMBOL" | "SECTION" | "SLIDE" | "SLIDE_ROW" | "SLIDE_GRID" | "TRANSFORM_GROUP" | "WIDGET" | "EMBED" | "MEDIA" | "LINK_UNFURL";
   componentId?: string;
+  componentKey?: string;
   isExposedInstance?: boolean;
   exposedInstances?: string[];
   componentProperties?: { [key: string]: ComponentProperty };

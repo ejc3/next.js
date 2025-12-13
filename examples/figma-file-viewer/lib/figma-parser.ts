@@ -16,6 +16,7 @@ import type {
   Color,
   Paint,
   Effect,
+  Override,
 } from "./figma-types";
 
 /**
@@ -991,6 +992,40 @@ export class FigmaParser {
       node.clipsContent = change.frameMaskDisabled !== true;
     }
 
+    // Handle component/instance linking and overrides
+    if (change.type === "INSTANCE" || change.type === "SYMBOL") {
+      // Link instance to its master component via symbolData
+      if (change.symbolData?.symbolID) {
+        node.componentId = this.formatNodeId(change.symbolData.symbolID);
+      }
+      // Parse symbol overrides - these contain modified properties
+      if (change.symbolData?.symbolOverrides && change.symbolData.symbolOverrides.length > 0) {
+        node.overrides = change.symbolData.symbolOverrides.map((override: any) => ({
+          id: override.guid ? this.formatNodeId(override.guid) : "",
+          overriddenFields: this.extractOverriddenFields(override),
+        }));
+      }
+    }
+
+    // Handle componentKey for published components
+    if (change.componentKey) {
+      node.componentKey = change.componentKey;
+    }
+
+    // Handle derivedSymbolData - alternative override storage
+    if (change.derivedSymbolData && change.derivedSymbolData.length > 0) {
+      // Merge derived data into overrides
+      const derivedOverrides = change.derivedSymbolData.map((d: any) => ({
+        id: d.guid ? this.formatNodeId(d.guid) : "",
+        overriddenFields: this.extractOverriddenFields(d),
+      }));
+      if (node.overrides) {
+        node.overrides = [...node.overrides, ...derivedOverrides];
+      } else {
+        node.overrides = derivedOverrides;
+      }
+    }
+
     // Handle mask properties
     if (change.mask === true) {
       node.isMask = true;
@@ -1130,6 +1165,34 @@ export class FigmaParser {
   }
 
   /**
+   * Extract overridden field names from a NodeChange object
+   * Figma marks which fields are overridden vs inherited from component
+   */
+  private extractOverriddenFields(change: any): string[] {
+    const overriddenFields: string[] = [];
+
+    // List of common fields that can be overridden
+    const potentialFields = [
+      "name", "visible", "opacity", "blendMode",
+      "fillPaints", "strokePaints", "strokeWeight", "strokeAlign",
+      "cornerRadius", "rectangleTopLeftCornerRadius", "rectangleTopRightCornerRadius",
+      "rectangleBottomLeftCornerRadius", "rectangleBottomRightCornerRadius",
+      "size", "transform", "effects",
+      "textData", "characters", "fontName", "fontSize", "textAlignHorizontal",
+      "letterSpacing", "lineHeight", "textDecoration", "textCase",
+      "layoutMode", "itemSpacing", "paddingLeft", "paddingRight", "paddingTop", "paddingBottom",
+    ];
+
+    for (const field of potentialFields) {
+      if (change[field] !== undefined) {
+        overriddenFields.push(field);
+      }
+    }
+
+    return overriddenFields;
+  }
+
+  /**
    * Get the current parsed file
    */
   getFile(): FigmaFile | null {
@@ -1241,6 +1304,71 @@ export class FigmaParser {
     }
 
     return components;
+  }
+
+  /**
+   * Get all instances from the file with their component links
+   */
+  getInstances(): Map<string, { instance: FigmaNode; componentId?: string }> {
+    const instances = new Map<string, { instance: FigmaNode; componentId?: string }>();
+
+    const findInstances = (node: FigmaNode) => {
+      if (node.type === "INSTANCE" || node.type === "SYMBOL") {
+        const frameNode = node as FrameNode;
+        instances.set(node.id, {
+          instance: node,
+          componentId: frameNode.componentId,
+        });
+      }
+      if ("children" in node && Array.isArray(node.children)) {
+        node.children.forEach((child) => findInstances(child as FigmaNode));
+      }
+    };
+
+    if (this.file?.document) {
+      findInstances(this.file.document);
+    }
+
+    return instances;
+  }
+
+  /**
+   * Resolve an instance to its master component
+   * Returns the component node if found, or null if not found
+   */
+  resolveInstanceComponent(instanceId: string): FigmaNode | null {
+    const instances = this.getInstances();
+    const instanceInfo = instances.get(instanceId);
+
+    if (!instanceInfo?.componentId) {
+      return null;
+    }
+
+    const components = this.getComponents();
+    return components.get(instanceInfo.componentId) || null;
+  }
+
+  /**
+   * Get override information for an instance
+   * Returns which child nodes and fields are overridden
+   */
+  getInstanceOverrides(instanceId: string): Override[] {
+    const node = this.findNodeById(instanceId);
+    if (!node || (node.type !== "INSTANCE" && node.type !== "SYMBOL")) {
+      return [];
+    }
+
+    const frameNode = node as FrameNode;
+    return frameNode.overrides || [];
+  }
+
+  /**
+   * Check if a specific field on an instance child is overridden
+   */
+  isFieldOverridden(instanceId: string, childId: string, fieldName: string): boolean {
+    const overrides = this.getInstanceOverrides(instanceId);
+    const childOverride = overrides.find(o => o.id === childId);
+    return childOverride?.overriddenFields.includes(fieldName) ?? false;
   }
 
   /**

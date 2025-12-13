@@ -320,7 +320,7 @@ Generated: ${timestamp}
 
 ### 14) Components/Instances
 - [x] Instance resolution (flattened)
-- [ ] Override resolution
+- [x] Override resolution
 
 ### 15) Prototype Interactions
 - [x] Parse prototype interactions
