@@ -861,6 +861,14 @@ export class FigmaParser {
       node.maskType = change.maskType || "ALPHA";
     }
 
+    // Handle constraints
+    if (change.horizontalConstraint || change.verticalConstraint) {
+      node.constraints = {
+        horizontal: change.horizontalConstraint || "MIN",
+        vertical: change.verticalConstraint || "MIN",
+      };
+    }
+
     return node as FigmaNode;
   }
 
