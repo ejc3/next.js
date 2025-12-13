@@ -274,10 +274,32 @@ export class FigmaParser {
       node.fills = change.fillPaints.map((paint: any) => this.convertPaint(paint));
     }
 
-    // Handle strokes
+    // Handle strokes with full properties
     if (change.strokePaints && change.strokePaints.length > 0) {
       node.strokes = change.strokePaints.map((paint: any) => this.convertPaint(paint));
       node.strokeWeight = change.strokeWeight || 1;
+      node.strokeAlign = change.strokeAlign || "CENTER";
+      node.strokeCap = change.strokeCap || "NONE";
+      node.strokeJoin = change.strokeJoin || "MITER";
+      if (change.dashPattern && change.dashPattern.length > 0) {
+        node.dashPattern = change.dashPattern;
+      }
+      if (change.miterLimit !== undefined) {
+        node.miterLimit = change.miterLimit;
+      }
+    }
+
+    // Handle transform matrix for rotation/skew
+    if (change.transform) {
+      const t = change.transform;
+      // Check if non-identity transform (has rotation, scale, or skew)
+      const hasTransform = t.m00 !== 1 || t.m11 !== 1 || t.m01 !== 0 || t.m10 !== 0;
+      if (hasTransform) {
+        node.relativeTransform = [
+          [t.m00, t.m01, t.m02],
+          [t.m10, t.m11, t.m12],
+        ];
+      }
     }
 
     // Handle text with full styling
@@ -344,18 +366,37 @@ export class FigmaParser {
       node.effects = change.effects.map((effect: any) => this.convertEffect(effect));
     }
 
-    // Handle layout properties
-    if (change.stackMode) {
-      node.layoutMode = change.stackMode === 1 ? "HORIZONTAL" : "VERTICAL";
+    // Handle layout properties (auto-layout)
+    if (change.stackMode && change.stackMode !== "NONE") {
+      node.layoutMode = change.stackMode === "HORIZONTAL" ? "HORIZONTAL" : "VERTICAL";
     }
     if (change.stackSpacing !== undefined) {
       node.itemSpacing = change.stackSpacing;
     }
-    if (change.stackPadding !== undefined) {
+    // Asymmetric padding support
+    if (change.stackHorizontalPadding !== undefined) {
+      node.paddingLeft = change.stackHorizontalPadding;
+      node.paddingRight = change.stackPaddingRight ?? change.stackHorizontalPadding;
+    }
+    if (change.stackVerticalPadding !== undefined) {
+      node.paddingTop = change.stackVerticalPadding;
+      node.paddingBottom = change.stackPaddingBottom ?? change.stackVerticalPadding;
+    }
+    // Fallback to uniform padding
+    if (change.stackPadding !== undefined && node.paddingLeft === undefined) {
       node.paddingLeft = change.stackPadding;
       node.paddingRight = change.stackPadding;
       node.paddingTop = change.stackPadding;
       node.paddingBottom = change.stackPadding;
+    }
+    // Counter axis sizing
+    if (change.stackCounterSizing) {
+      node.counterAxisSizingMode = change.stackCounterSizing;
+    }
+
+    // Handle corner smoothing (iOS-style squircle)
+    if (change.cornerSmoothing !== undefined && change.cornerSmoothing > 0) {
+      node.cornerSmoothing = change.cornerSmoothing;
     }
 
     return node as FigmaNode;
@@ -663,6 +704,26 @@ export function paintToCSS(paint: Paint): string | null {
       return null;
 
     case "GRADIENT_RADIAL":
+      if (paint.gradientStops) {
+        const stops = paint.gradientStops
+          .map((stop) => `${colorToRgba(stop.color)} ${stop.position * 100}%`)
+          .join(", ");
+        return `radial-gradient(circle, ${stops})`;
+      }
+      return null;
+
+    case "GRADIENT_ANGULAR":
+      if (paint.gradientStops) {
+        const stops = paint.gradientStops
+          .map((stop) => `${colorToRgba(stop.color)} ${stop.position * 360}deg`)
+          .join(", ");
+        return `conic-gradient(from 0deg, ${stops})`;
+      }
+      return null;
+
+    case "GRADIENT_DIAMOND":
+      // Diamond gradients don't have direct CSS equivalent
+      // Approximate with radial gradient
       if (paint.gradientStops) {
         const stops = paint.gradientStops
           .map((stop) => `${colorToRgba(stop.color)} ${stop.position * 100}%`)

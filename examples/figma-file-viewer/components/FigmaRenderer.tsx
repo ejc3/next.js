@@ -59,6 +59,68 @@ function applyBlendMode(s: CSSProperties, node: { blendMode?: string }): void {
   }
 }
 
+/**
+ * Apply transform matrix from Figma's relativeTransform
+ * relativeTransform is a 2x3 matrix: [[m00, m01, m02], [m10, m11, m12]]
+ * CSS matrix() is: matrix(m00, m10, m01, m11, m02, m12)
+ */
+function applyTransform(s: CSSProperties, node: { relativeTransform?: number[][] }, scale: number): void {
+  if (!node.relativeTransform) return;
+  const [[m00, m01, m02], [m10, m11, m12]] = node.relativeTransform;
+  // Apply CSS matrix transform (note the different parameter order)
+  // We only apply rotation/scale/skew, not translation (handled by position)
+  if (m00 !== 1 || m11 !== 1 || m01 !== 0 || m10 !== 0) {
+    s.transform = `matrix(${m00}, ${m10}, ${m01}, ${m11}, 0, 0)`;
+    s.transformOrigin = "top left";
+  }
+}
+
+/**
+ * Apply stroke properties including dashed strokes
+ */
+function applyStroke(
+  s: CSSProperties,
+  node: {
+    strokes?: Paint[];
+    strokeWeight?: number;
+    strokeAlign?: string;
+    strokeCap?: string;
+    strokeJoin?: string;
+    dashPattern?: number[];
+  },
+  scale: number
+): void {
+  if (!node.strokes || node.strokes.length === 0 || !node.strokeWeight) return;
+
+  const strokeColor = paintToCSS(node.strokes[0]);
+  if (!strokeColor) return;
+
+  const weight = node.strokeWeight * scale;
+
+  // Handle stroke alignment (INSIDE, CENTER, OUTSIDE)
+  // CSS borders are always inside for box-sizing: border-box
+  // For OUTSIDE strokes, we use outline instead
+  // For CENTER strokes (default), use border
+  if (node.strokeAlign === "OUTSIDE") {
+    s.outline = `${weight}px solid ${strokeColor}`;
+    s.outlineOffset = "0px";
+  } else {
+    s.border = `${weight}px solid ${strokeColor}`;
+    // For INSIDE alignment, we need to account for border in the size
+    if (node.strokeAlign === "INSIDE") {
+      s.boxSizing = "border-box";
+    }
+  }
+
+  // Handle dashed strokes (only works well with border, not outline)
+  if (node.dashPattern && node.dashPattern.length > 0 && node.strokeAlign !== "OUTSIDE") {
+    const dashArray = node.dashPattern.map(d => `${d * scale}px`).join(" ");
+    s.borderStyle = "dashed";
+    // Note: CSS doesn't support custom dash patterns directly
+    // borderStyle: dashed uses browser default
+  }
+}
+
 interface FigmaRendererProps {
   node: FigmaNode;
   scale?: number;
@@ -442,13 +504,8 @@ function FrameRenderer({
         .join(" ");
     }
 
-    // Stroke (border)
-    if (node.strokes && node.strokes.length > 0 && node.strokeWeight) {
-      const strokeColor = paintToCSS(node.strokes[0]);
-      if (strokeColor) {
-        s.border = `${node.strokeWeight * scale}px solid ${strokeColor}`;
-      }
-    }
+    // Stroke (border) with full properties
+    applyStroke(s, node, scale);
 
     // Effects (shadows, blur)
     if (node.effects && node.effects.length > 0) {
@@ -467,6 +524,9 @@ function FrameRenderer({
     if (node.clipsContent) {
       s.overflow = "hidden";
     }
+
+    // Transform (rotation/skew)
+    applyTransform(s, node, scale);
 
     // Blend mode
     applyBlendMode(s, node);
@@ -542,6 +602,9 @@ function GroupRenderer({
       if (effects.filter) s.filter = effects.filter;
       if (effects.backdropFilter) s.backdropFilter = effects.backdropFilter;
     }
+
+    // Transform (rotation/skew)
+    applyTransform(s, node, scale);
 
     // Blend mode
     applyBlendMode(s, node);
@@ -680,6 +743,9 @@ function TextRenderer({
       if (effects.filter) s.filter = effects.filter;
     }
 
+    // Transform (rotation/skew)
+    applyTransform(s, node, scale);
+
     // Blend mode
     applyBlendMode(s, node);
 
@@ -775,13 +841,13 @@ function VectorRenderer({
       }
     }
 
-    // Stroke
-    if (node.type !== "LINE" && node.strokes && node.strokes.length > 0 && node.strokeWeight) {
-      const strokeColor = paintToCSS(node.strokes[0]);
-      if (strokeColor) {
-        s.border = `${node.strokeWeight * scale}px solid ${strokeColor}`;
-      }
+    // Stroke with full properties
+    if (node.type !== "LINE") {
+      applyStroke(s, node, scale);
     }
+
+    // Transform (rotation/skew)
+    applyTransform(s, node, scale);
 
     // Effects
     if (node.effects && node.effects.length > 0) {
