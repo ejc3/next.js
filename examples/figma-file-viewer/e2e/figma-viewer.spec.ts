@@ -24,6 +24,7 @@ async function uploadJsonFile(page: Page, filename: string, content: string) {
   });
 }
 
+
 test.describe("Figma File Viewer", () => {
   test.beforeEach(async ({ page }) => {
     await page.goto("/");
@@ -548,5 +549,56 @@ test.describe("Visual Regression Tests", () => {
     await expect(page).toHaveScreenshot("stats-view.png", {
       maxDiffPixels: 300,
     });
+  });
+});
+
+/**
+ * Tests using real .fig files downloaded from the internet
+ * Source: https://github.com/parthivdholaria/Figma-IHCI-Project
+ */
+test.describe("Real .fig File Tests", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/");
+  });
+
+  test("should upload and parse prototype-group-26.fig", async ({ page }) => {
+    // Upload the real .fig file
+    const fixturePath = path.join(__dirname, "fixtures", "prototype-group-26.fig");
+    const buffer = fs.readFileSync(fixturePath);
+    const fileInput = page.locator('input[type="file"]');
+    await fileInput.setInputFiles({
+      name: "prototype-group-26.fig",
+      mimeType: "application/octet-stream",
+      buffer: buffer,
+    });
+
+    // Should render without errors (allow more time for parsing)
+    await expect(page.locator(".figma-canvas, .figma-document")).toBeVisible({ timeout: 60000 });
+
+    // Should have document stats
+    await page.getByRole("button", { name: "Stats" }).click();
+    await expect(page.getByText("Document Statistics")).toBeVisible();
+    await expect(page.getByText("Total Nodes")).toBeVisible();
+  });
+
+  test("should display component tree for real .fig file", async ({ page }) => {
+    const fixturePath = path.join(__dirname, "fixtures", "prototype-group-26.fig");
+    const buffer = fs.readFileSync(fixturePath);
+    const fileInput = page.locator('input[type="file"]');
+    await fileInput.setInputFiles({
+      name: "prototype-group-26.fig",
+      mimeType: "application/octet-stream",
+      buffer: buffer,
+    });
+
+    await expect(page.locator(".figma-canvas, .figma-document")).toBeVisible({ timeout: 60000 });
+
+    // Switch to tree view
+    await page.getByRole("button", { name: "Tree" }).first().click();
+    await expect(page.getByText("Full Component Tree")).toBeVisible();
+
+    // Should have at least one node in tree
+    const nodeCount = await page.locator(".component-tree .tree-node").count();
+    expect(nodeCount).toBeGreaterThan(0);
   });
 });

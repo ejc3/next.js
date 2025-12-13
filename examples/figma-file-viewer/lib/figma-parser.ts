@@ -18,6 +18,65 @@ import type {
   Effect,
 } from "./figma-types";
 
+/**
+ * FigmaArchiveParser - Parses the fig-kiwi binary format
+ * Implemented inline to avoid CJS/ESM import issues with fig-kiwi package
+ */
+const FIG_KIWI_PRELUDE = "fig-kiwi";
+
+class FigmaArchiveParser {
+  private offset = 0;
+  private buffer: Uint8Array;
+  private data: DataView;
+
+  constructor(buffer: Uint8Array) {
+    this.buffer = buffer;
+    this.data = new DataView(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+  }
+
+  private readUint32(): number {
+    const n = this.data.getUint32(this.offset, true);
+    this.offset += 4;
+    return n;
+  }
+
+  private read(bytes: number): Uint8Array {
+    if (this.offset + bytes <= this.buffer.length) {
+      const d = this.buffer.slice(this.offset, this.offset + bytes);
+      this.offset += bytes;
+      return d;
+    } else {
+      throw new Error(`read(${bytes}) is past end of data`);
+    }
+  }
+
+  private readHeader(): { prelude: string; version: number } {
+    const preludeData = this.read(FIG_KIWI_PRELUDE.length);
+    const prelude = String.fromCharCode.apply(String, Array.from(preludeData));
+    if (prelude !== FIG_KIWI_PRELUDE) {
+      throw new Error(`Unexpected prelude: "${prelude}"`);
+    }
+    const version = this.readUint32();
+    return { prelude, version };
+  }
+
+  readAll(): { header: { prelude: string; version: number }; files: Uint8Array[] } {
+    const header = this.readHeader();
+    const files: Uint8Array[] = [];
+    while (this.offset + 4 < this.buffer.length) {
+      const size = this.readUint32();
+      const data = this.read(size);
+      files.push(data);
+    }
+    return { header, files };
+  }
+
+  static parseArchive(data: Uint8Array): { header: { prelude: string; version: number }; files: Uint8Array[] } {
+    const parser = new FigmaArchiveParser(data);
+    return parser.readAll();
+  }
+}
+
 export class FigmaParser {
   private file: FigmaFile | null = null;
   private images: Map<string, string> = new Map();
@@ -45,64 +104,272 @@ export class FigmaParser {
   }
 
   /**
-   * Parse a .fig file (compressed format)
-   * Note: .fig files are proprietary and may require special handling
+   * Parse a .fig file using fig-kiwi library
+   * Handles Figma's proprietary binary format
    */
   async parseFigFile(arrayBuffer: ArrayBuffer): Promise<FigmaFile> {
     try {
       // Try to parse as JSON first (some exports are JSON)
       const text = new TextDecoder().decode(arrayBuffer);
-
-      // Check if it's JSON
       if (text.trim().startsWith("{")) {
         return this.parseJSON(text);
       }
 
-      // .fig files are typically compressed archives
-      // We'll try to extract and parse them
+      // Import required libraries
       const JSZip = (await import("jszip")).default;
+      const { decodeBinarySchema, compileSchema } = await import("kiwi-schema");
+      const { inflateRaw } = await import("pako");
+
+      // Try to load as ZIP (standard .fig format)
       const zip = new JSZip();
+      const contents = await zip.loadAsync(arrayBuffer);
 
-      try {
-        const contents = await zip.loadAsync(arrayBuffer);
-
-        // Look for the main JSON file in the archive
-        const jsonFile = contents.file("canvas.json") ||
-                        contents.file("document.json") ||
-                        contents.file(/\.json$/i)[0];
-
-        if (jsonFile) {
-          const jsonContent = await jsonFile.async("string");
-          return this.parseJSON(jsonContent);
-        }
-
-        // Try to find any readable content
-        const files = Object.keys(contents.files);
-        for (const filename of files) {
-          if (!contents.files[filename].dir) {
-            const content = await contents.files[filename].async("string");
-            if (content.includes('"document"') || content.includes('"DOCUMENT"')) {
-              return this.parseJSON(content);
-            }
-          }
-        }
-      } catch (zipError) {
-        // Not a valid zip, try other formats
-        console.warn("Not a valid zip archive, trying alternative parsing");
+      // Look for meta.json to get file name
+      const metaFile = contents.file("meta.json");
+      let fileName = "Figma Document";
+      if (metaFile) {
+        const metaContent = await metaFile.async("string");
+        const meta = JSON.parse(metaContent);
+        fileName = meta.file_name || fileName;
       }
 
-      // If nothing worked, try to extract JSON from binary
-      const jsonMatch = text.match(/\{[\s\S]*"document"[\s\S]*\}/);
-      if (jsonMatch) {
-        return this.parseJSON(jsonMatch[0]);
+      // Extract thumbnail if available
+      const thumbnailFile = contents.file("thumbnail.png");
+      if (thumbnailFile) {
+        const thumbnailData = await thumbnailFile.async("uint8array");
+        this.images.set("thumbnail", URL.createObjectURL(new Blob([thumbnailData], { type: "image/png" })));
       }
 
-      throw new Error(
-        "Unable to parse .fig file. Please export your Figma file as JSON using the Figma API or a plugin."
-      );
+      // Extract images
+      const imageFiles = contents.file(/^images\//);
+      for (const imageFile of imageFiles) {
+        if (!imageFile.dir) {
+          const imageData = await imageFile.async("uint8array");
+          const imageName = imageFile.name.split("/").pop() || "";
+          this.images.set(imageName, URL.createObjectURL(new Blob([imageData])));
+        }
+      }
+
+      // Parse canvas.fig using fig-kiwi
+      const canvasFile = contents.file("canvas.fig");
+      if (!canvasFile) {
+        throw new Error("No canvas.fig found in .fig archive");
+      }
+
+      const canvasData = await canvasFile.async("uint8array");
+
+      // Parse the fig-kiwi archive
+      const { header, files } = FigmaArchiveParser.parseArchive(canvasData);
+      const [schemaCompressed, dataCompressed] = files;
+
+      // Decompress and decode schema
+      const schema = decodeBinarySchema(inflateRaw(schemaCompressed));
+      const compiledSchema = compileSchema(schema);
+
+      // Decode the message
+      const message = compiledSchema.decodeMessage(inflateRaw(dataCompressed));
+
+      // Convert to our FigmaFile format
+      const figmaFile = this.convertFigKiwiToFigmaFile(message, fileName);
+      this.file = figmaFile;
+      return figmaFile;
     } catch (error) {
+      console.error("Error parsing .fig file:", error);
       throw new Error(`Failed to parse .fig file: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
+  }
+
+  /**
+   * Convert fig-kiwi message format to our FigmaFile format
+   */
+  private convertFigKiwiToFigmaFile(message: any, fileName?: string): FigmaFile {
+    const nodes = new Map<string, any>();
+    const rootNodes: any[] = [];
+
+    // Process nodeChanges to build node map
+    if (message.nodeChanges) {
+      for (const change of message.nodeChanges) {
+        const nodeId = this.formatNodeId(change.guid);
+        const node = this.convertFigKiwiNode(change, nodeId);
+        nodes.set(nodeId, node);
+
+        // Track root-level nodes (pages/canvases)
+        if (change.type === "CANVAS" || (!change.parentIndex && change.type === "DOCUMENT")) {
+          rootNodes.push(node);
+        }
+      }
+    }
+
+    // Build parent-child relationships
+    if (message.nodeChanges) {
+      for (const change of message.nodeChanges) {
+        if (change.parentIndex) {
+          const parentId = this.formatNodeId(change.parentIndex.guid);
+          const childId = this.formatNodeId(change.guid);
+          const parent = nodes.get(parentId);
+          const child = nodes.get(childId);
+
+          if (parent && child) {
+            if (!parent.children) parent.children = [];
+            parent.children.push(child);
+          }
+        }
+      }
+    }
+
+    // Find or create document node
+    let documentNode = Array.from(nodes.values()).find((n) => n.type === "DOCUMENT");
+    if (!documentNode) {
+      // Create document with pages as children
+      const pages = Array.from(nodes.values()).filter((n) => n.type === "CANVAS");
+      documentNode = {
+        id: "0:0",
+        name: "Document",
+        type: "DOCUMENT",
+        children: pages,
+      };
+    }
+
+    return {
+      name: fileName || message.pasteFileKey || "Figma Document",
+      document: documentNode as DocumentNode,
+      schemaVersion: 0,
+      version: "1.0.0",
+    };
+  }
+
+  /**
+   * Format a GUID object to Figma's node ID format
+   */
+  private formatNodeId(guid: any): string {
+    if (!guid) return "0:0";
+    if (typeof guid === "string") return guid;
+    return `${guid.sessionID || 0}:${guid.localID || 0}`;
+  }
+
+  /**
+   * Convert a fig-kiwi node to our node format
+   */
+  private convertFigKiwiNode(change: any, nodeId: string): FigmaNode {
+    const node: any = {
+      id: nodeId,
+      name: change.name || `Node ${nodeId}`,
+      type: change.type || "FRAME",
+      visible: change.visible !== false,
+    };
+
+    // Handle bounding box
+    if (change.size) {
+      node.absoluteBoundingBox = {
+        x: change.transform?.m02 || 0,
+        y: change.transform?.m12 || 0,
+        width: change.size.x || 0,
+        height: change.size.y || 0,
+      };
+    }
+
+    // Handle fills
+    if (change.fillPaints && change.fillPaints.length > 0) {
+      node.fills = change.fillPaints.map((paint: any) => this.convertPaint(paint));
+    }
+
+    // Handle strokes
+    if (change.strokePaints && change.strokePaints.length > 0) {
+      node.strokes = change.strokePaints.map((paint: any) => this.convertPaint(paint));
+      node.strokeWeight = change.strokeWeight || 1;
+    }
+
+    // Handle text
+    if (change.type === "TEXT") {
+      node.characters = change.textData?.characters || change.name || "";
+      if (change.fontName) {
+        node.style = {
+          fontFamily: change.fontName.family || "Inter",
+          fontWeight: change.fontName.style?.includes("Bold") ? 700 : 400,
+          fontSize: change.fontSize || 16,
+        };
+      }
+    }
+
+    // Handle corner radius
+    if (change.cornerRadius !== undefined) {
+      node.cornerRadius = change.cornerRadius;
+    }
+    if (change.rectangleCornerRadii) {
+      node.rectangleCornerRadii = change.rectangleCornerRadii;
+    }
+
+    // Handle opacity
+    if (change.opacity !== undefined) {
+      node.opacity = change.opacity;
+    }
+
+    // Handle effects
+    if (change.effects && change.effects.length > 0) {
+      node.effects = change.effects.map((effect: any) => this.convertEffect(effect));
+    }
+
+    // Handle layout properties
+    if (change.stackMode) {
+      node.layoutMode = change.stackMode === 1 ? "HORIZONTAL" : "VERTICAL";
+    }
+    if (change.stackSpacing !== undefined) {
+      node.itemSpacing = change.stackSpacing;
+    }
+    if (change.stackPadding !== undefined) {
+      node.paddingLeft = change.stackPadding;
+      node.paddingRight = change.stackPadding;
+      node.paddingTop = change.stackPadding;
+      node.paddingBottom = change.stackPadding;
+    }
+
+    return node as FigmaNode;
+  }
+
+  /**
+   * Convert fig-kiwi paint to our paint format
+   */
+  private convertPaint(paint: any): Paint {
+    const result: Paint = {
+      type: "SOLID",
+      visible: paint.visible !== false,
+    };
+
+    if (paint.type === "SOLID" || !paint.type) {
+      result.type = "SOLID";
+      if (paint.color) {
+        result.color = {
+          r: paint.color.r || 0,
+          g: paint.color.g || 0,
+          b: paint.color.b || 0,
+          a: paint.color.a ?? 1,
+        };
+      }
+      result.opacity = paint.opacity ?? 1;
+    } else if (paint.type === "GRADIENT_LINEAR") {
+      result.type = "GRADIENT_LINEAR";
+      result.gradientStops = paint.gradientStops;
+      result.gradientHandlePositions = paint.gradientHandlePositions;
+    } else if (paint.type === "GRADIENT_RADIAL") {
+      result.type = "GRADIENT_RADIAL";
+      result.gradientStops = paint.gradientStops;
+    }
+
+    return result;
+  }
+
+  /**
+   * Convert fig-kiwi effect to our effect format
+   */
+  private convertEffect(effect: any): Effect {
+    return {
+      type: effect.type || "DROP_SHADOW",
+      visible: effect.visible !== false,
+      color: effect.color,
+      offset: effect.offset,
+      radius: effect.radius || 0,
+      spread: effect.spread || 0,
+    };
   }
 
   /**
