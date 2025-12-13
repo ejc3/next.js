@@ -63,6 +63,7 @@ export interface Paint {
   scalingFactor?: number;
   rotation?: number;
   imageRef?: string;
+  imageUrl?: string; // Data URL or blob URL for the image
   gifRef?: string;
   filters?: ImageFilters;
 }

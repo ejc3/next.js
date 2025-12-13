@@ -611,13 +611,22 @@ export class FigmaParser {
       }
 
       // Extract images - convert to base64 data URLs for portability
+      // Store by filename without extension (which is the hash prefix used in lookups)
       const imageFiles = contents.file(/^images\//);
       for (const imageFile of imageFiles) {
         if (!imageFile.dir) {
           const imageData = await imageFile.async("base64");
           const imageName = imageFile.name.split("/").pop() || "";
-          // Detect image type from first bytes or default to png
-          this.images.set(imageName, `data:image/png;base64,${imageData}`);
+          // Store by full filename and by name without extension (hash prefix)
+          const nameWithoutExt = imageName.replace(/\.[^.]+$/, "");
+          // Detect image type from extension
+          const ext = imageName.split(".").pop()?.toLowerCase() || "png";
+          const mimeType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" :
+                          ext === "gif" ? "image/gif" :
+                          ext === "webp" ? "image/webp" : "image/png";
+          const dataUrl = `data:${mimeType};base64,${imageData}`;
+          this.images.set(imageName, dataUrl);
+          this.images.set(nameWithoutExt, dataUrl);
         }
       }
 
@@ -1122,9 +1131,19 @@ export class FigmaParser {
       if (paint.image?.hash) {
         const hashHex = this.hashToHex(paint.image.hash);
         result.imageRef = hashHex;
-        // Store the blob URL if we have it
-        if (this.images.has(hashHex)) {
-          (result as any).imageUrl = this.images.get(hashHex);
+        // Look up image - try full hash first, then prefix matching
+        let imageUrl = this.images.get(hashHex);
+        if (!imageUrl) {
+          // Try to find by prefix match (filenames may be truncated hashes)
+          for (const [key, url] of this.images.entries()) {
+            if (hashHex.startsWith(key) || key.startsWith(hashHex)) {
+              imageUrl = url;
+              break;
+            }
+          }
+        }
+        if (imageUrl) {
+          result.imageUrl = imageUrl;
         }
       }
     } else if (paint.type === "SOLID" || !paint.type) {
@@ -1515,11 +1534,11 @@ export function paintToCSS(paint: Paint): string | null {
       return null;
 
     case "IMAGE":
-      // Check for imageUrl (blob URL from parsed .fig file)
-      if ((paint as any).imageUrl) {
+      // Check for imageUrl (data URL from parsed .fig file)
+      if (paint.imageUrl) {
         const scaleMode = paint.scaleMode || "FILL";
         const size = scaleMode === "FILL" ? "cover" : scaleMode === "FIT" ? "contain" : "auto";
-        return `url(${(paint as any).imageUrl}) center/${size} no-repeat`;
+        return `url(${paint.imageUrl}) center/${size} no-repeat`;
       }
       return null;
 
