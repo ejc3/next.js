@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import type { ComponentTreeNode, FigmaNode, NodeType } from "../lib/figma-types";
 
 interface ComponentTreeProps {
@@ -66,6 +66,105 @@ export function ComponentTree({
   expandAll = false,
   searchQuery = "",
 }: ComponentTreeProps) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const expandedNodesRef = useRef<Set<string>>(new Set());
+
+  // Collect all visible node IDs in tree order for keyboard navigation
+  const getVisibleNodeIds = useCallback((): string[] => {
+    if (!tree) return [];
+    const ids: string[] = [];
+
+    const traverse = (node: ComponentTreeNode, searchTerm: string) => {
+      const nodeMatches = !searchTerm ||
+        node.name.toLowerCase().includes(searchTerm) ||
+        node.type.toLowerCase().includes(searchTerm);
+
+      const checkChildren = (children: ComponentTreeNode[] | undefined): boolean => {
+        if (!children) return false;
+        return children.some(
+          (child) =>
+            child.name.toLowerCase().includes(searchTerm) ||
+            child.type.toLowerCase().includes(searchTerm) ||
+            checkChildren(child.children)
+        );
+      };
+
+      const hasMatchingDescendant = searchTerm ? checkChildren(node.children) : true;
+      const isVisible = nodeMatches || hasMatchingDescendant;
+
+      if (isVisible) {
+        ids.push(node.id);
+        const isExpanded = expandedNodesRef.current.has(node.id) || expandAll;
+        if (node.children && isExpanded) {
+          node.children.forEach(child => traverse(child, searchTerm));
+        }
+      }
+    };
+
+    traverse(tree, searchQuery.toLowerCase());
+    return ids;
+  }, [tree, searchQuery, expandAll]);
+
+  // Handle keyboard navigation
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!selectedId || !onNodeSelect) return;
+
+    const visibleIds = getVisibleNodeIds();
+    const currentIndex = visibleIds.indexOf(selectedId);
+    if (currentIndex === -1) return;
+
+    switch (e.key) {
+      case "ArrowDown":
+        e.preventDefault();
+        if (currentIndex < visibleIds.length - 1) {
+          onNodeSelect(visibleIds[currentIndex + 1]);
+        }
+        break;
+      case "ArrowUp":
+        e.preventDefault();
+        if (currentIndex > 0) {
+          onNodeSelect(visibleIds[currentIndex - 1]);
+        }
+        break;
+      case "ArrowRight":
+        e.preventDefault();
+        // Expand current node
+        expandedNodesRef.current.add(selectedId);
+        // Force re-render by selecting same node
+        onNodeSelect(selectedId);
+        break;
+      case "ArrowLeft":
+        e.preventDefault();
+        // Collapse current node
+        expandedNodesRef.current.delete(selectedId);
+        onNodeSelect(selectedId);
+        break;
+      case "Enter":
+      case " ":
+        e.preventDefault();
+        // Toggle expand
+        if (expandedNodesRef.current.has(selectedId)) {
+          expandedNodesRef.current.delete(selectedId);
+        } else {
+          expandedNodesRef.current.add(selectedId);
+        }
+        onNodeSelect(selectedId);
+        break;
+      case "Home":
+        e.preventDefault();
+        if (visibleIds.length > 0) {
+          onNodeSelect(visibleIds[0]);
+        }
+        break;
+      case "End":
+        e.preventDefault();
+        if (visibleIds.length > 0) {
+          onNodeSelect(visibleIds[visibleIds.length - 1]);
+        }
+        break;
+    }
+  }, [selectedId, onNodeSelect, getVisibleNodeIds]);
+
   if (!tree) {
     return (
       <div className="component-tree-empty">
@@ -77,7 +176,15 @@ export function ComponentTree({
   }
 
   return (
-    <div className="component-tree" style={treeContainerStyle}>
+    <div
+      ref={containerRef}
+      className="component-tree"
+      style={treeContainerStyle}
+      tabIndex={0}
+      role="tree"
+      aria-label="Component tree"
+      onKeyDown={handleKeyDown}
+    >
       <TreeNode
         node={tree}
         selectedId={selectedId}
@@ -85,6 +192,7 @@ export function ComponentTree({
         level={0}
         defaultExpanded={expandAll}
         searchQuery={searchQuery.toLowerCase()}
+        expandedNodesRef={expandedNodesRef}
       />
     </div>
   );
@@ -97,6 +205,7 @@ interface TreeNodeProps {
   level: number;
   defaultExpanded: boolean;
   searchQuery: string;
+  expandedNodesRef?: React.MutableRefObject<Set<string>>;
 }
 
 function TreeNode({
@@ -106,10 +215,25 @@ function TreeNode({
   level,
   defaultExpanded,
   searchQuery,
+  expandedNodesRef,
 }: TreeNodeProps) {
-  const [isExpanded, setIsExpanded] = useState(
-    defaultExpanded || level < 2 || node.type === "DOCUMENT"
-  );
+  // Initialize expanded state from ref or defaults
+  const getInitialExpanded = () => {
+    if (expandedNodesRef?.current.has(node.id)) return true;
+    return defaultExpanded || level < 2 || node.type === "DOCUMENT";
+  };
+
+  const [isExpanded, setIsExpanded] = useState(getInitialExpanded);
+
+  // Sync with external expanded state (from keyboard navigation)
+  useEffect(() => {
+    if (expandedNodesRef) {
+      const shouldBeExpanded = expandedNodesRef.current.has(node.id);
+      if (shouldBeExpanded !== isExpanded && expandedNodesRef.current.has(node.id)) {
+        setIsExpanded(true);
+      }
+    }
+  }, [selectedId, node.id, expandedNodesRef, isExpanded]);
 
   const hasChildren = node.children && node.children.length > 0;
   const isSelected = selectedId === node.id;
@@ -146,12 +270,28 @@ function TreeNode({
 
   const handleToggle = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
-    setIsExpanded(!isExpanded);
-  }, [isExpanded]);
+    const newExpanded = !isExpanded;
+    setIsExpanded(newExpanded);
+    // Sync with ref for keyboard navigation
+    if (expandedNodesRef) {
+      if (newExpanded) {
+        expandedNodesRef.current.add(node.id);
+      } else {
+        expandedNodesRef.current.delete(node.id);
+      }
+    }
+  }, [isExpanded, node.id, expandedNodesRef]);
 
   const handleSelect = useCallback(() => {
     onNodeSelect?.(node.id);
   }, [node.id, onNodeSelect]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    // Prevent propagation to tree container if handled locally
+    if (e.key === "Enter" || e.key === " ") {
+      e.stopPropagation();
+    }
+  }, []);
 
   if (!matchesSearch) {
     return null;
@@ -164,10 +304,18 @@ function TreeNode({
   );
 
   return (
-    <div className="tree-node">
+    <div
+      className="tree-node"
+      role="treeitem"
+      aria-expanded={hasChildren ? isExpanded : undefined}
+      aria-selected={isSelected}
+      aria-level={level + 1}
+      aria-label={`${node.name || "(unnamed)"}, ${node.type}`}
+    >
       <div
         className="tree-node-row"
         onClick={handleSelect}
+        onKeyDown={handleKeyDown}
         style={{
           ...nodeRowStyle,
           paddingLeft: level * 16 + 8,
@@ -177,18 +325,21 @@ function TreeNode({
             ? "#fef3c7"
             : "transparent",
           borderLeft: isSelected ? "3px solid #4f46e5" : "3px solid transparent",
+          outline: isSelected ? "2px solid #4f46e5" : "none",
+          outlineOffset: "-2px",
         }}
       >
         {hasChildren ? (
           <button
             onClick={handleToggle}
             style={expandButtonStyle}
-            aria-label={isExpanded ? "Collapse" : "Expand"}
+            aria-label={isExpanded ? `Collapse ${node.name}` : `Expand ${node.name}`}
+            aria-expanded={isExpanded}
           >
             {isExpanded ? "▼" : "▶"}
           </button>
         ) : (
-          <span style={{ width: 20, display: "inline-block" }} />
+          <span style={{ width: 20, display: "inline-block" }} aria-hidden="true" />
         )}
 
         <span
@@ -197,6 +348,7 @@ function TreeNode({
             color: typeStyle.color,
           }}
           title={node.type}
+          aria-hidden="true"
         >
           {typeStyle.icon}
         </span>
@@ -211,17 +363,17 @@ function TreeNode({
           {node.name || "(unnamed)"}
         </span>
 
-        <span style={nodeTypeStyle}>{node.type}</span>
+        <span style={nodeTypeStyle} aria-hidden="true">{node.type}</span>
 
         {node.visible === false && (
-          <span style={hiddenBadgeStyle} title="Hidden">
+          <span style={hiddenBadgeStyle} title="Hidden" aria-label="Hidden node">
             👁️‍🗨️
           </span>
         )}
       </div>
 
       {hasChildren && isExpanded && (
-        <div className="tree-node-children">
+        <div className="tree-node-children" role="group">
           {node.children!.map((child, index) => (
             <TreeNode
               key={child.id || index}
@@ -231,6 +383,7 @@ function TreeNode({
               level={level + 1}
               defaultExpanded={defaultExpanded}
               searchQuery={searchQuery}
+              expandedNodesRef={expandedNodesRef}
             />
           ))}
         </div>

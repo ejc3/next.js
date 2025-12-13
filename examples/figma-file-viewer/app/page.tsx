@@ -6,6 +6,7 @@ import type { FigmaFile, FigmaNode, ComponentTreeNode } from "../lib/figma-types
 import { FigmaRenderer } from "../components/FigmaRenderer";
 import { ComponentTree, TreeStats, TextContentList } from "../components/ComponentTree";
 import { FileUploader, SampleFileLoader } from "../components/FileUploader";
+import ErrorBoundary from "../components/ErrorBoundary";
 
 type ViewMode = "render" | "tree" | "text" | "stats" | "prototype";
 type SidePanel = "tree" | "properties" | "none";
@@ -60,6 +61,16 @@ export default function FigmaViewerPage() {
   } | null>(null);
   // SWAP state: maps original node IDs to their swapped component IDs
   const [swapState, setSwapState] = useState<Map<string, string>>(new Map());
+
+  // Refs for timeout cleanup to prevent memory leaks
+  const transitionTimeoutsRef = useRef<NodeJS.Timeout[]>([]);
+  const highlightTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Stable callback for findNodeById to prevent re-renders
+  const findNodeByIdCallback = useCallback(
+    (id: string) => parser.findNodeById(id),
+    [parser]
+  );
 
   // Parse the file content
   const handleFileLoad = useCallback(
@@ -228,6 +239,10 @@ export default function FigmaViewerPage() {
         const easing = mapFigmaEasingToCSS(easingType);
 
         if (duration > 0) {
+          // Clear any existing transition timeouts
+          transitionTimeoutsRef.current.forEach(clearTimeout);
+          transitionTimeoutsRef.current = [];
+
           // Start transition animation with custom duration and easing
           setPrototypeTransition({
             type: transition,
@@ -240,18 +255,20 @@ export default function FigmaViewerPage() {
           // Change frame partway through for some transitions
           if (transition === "DISSOLVE" || transition === "SMART_ANIMATE") {
             // Fade out, then change, then fade in
-            setTimeout(() => {
+            const frameChangeTimeout = setTimeout(() => {
               setPrototypeFrameId(targetNodeId);
             }, duration / 2);
+            transitionTimeoutsRef.current.push(frameChangeTimeout);
           } else {
             // Slide animations - change immediately
             setPrototypeFrameId(targetNodeId);
           }
 
           // End transition
-          setTimeout(() => {
+          const endTransitionTimeout = setTimeout(() => {
             setPrototypeTransition(null);
           }, duration);
+          transitionTimeoutsRef.current.push(endTransitionTimeout);
         } else {
           // Instant transition
           setPrototypeFrameId(targetNodeId);
@@ -265,22 +282,40 @@ export default function FigmaViewerPage() {
         // Select the target node
         setSelectedNodeId(targetNodeId);
 
+        // Clear previous highlight timeout
+        if (highlightTimeoutRef.current) {
+          clearTimeout(highlightTimeoutRef.current);
+          highlightTimeoutRef.current = null;
+        }
+
         // Scroll to the target node
-        setTimeout(() => {
+        const scrollTimeout = setTimeout(() => {
           const element = document.querySelector(`[data-figma-id="${targetNodeId}"]`);
           if (element) {
             element.scrollIntoView({ behavior: "smooth", block: "center" });
             // Add a brief highlight effect
             element.classList.add("prototype-target-highlight");
-            setTimeout(() => {
+            highlightTimeoutRef.current = setTimeout(() => {
               element.classList.remove("prototype-target-highlight");
             }, 1000);
           }
         }, 100);
+        transitionTimeoutsRef.current.push(scrollTimeout);
       }
     },
     [parser, viewMode, overlayState]
   );
+
+  // Cleanup all timeouts on unmount
+  useEffect(() => {
+    return () => {
+      transitionTimeoutsRef.current.forEach(clearTimeout);
+      transitionTimeoutsRef.current = [];
+      if (highlightTimeoutRef.current) {
+        clearTimeout(highlightTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // AFTER_TIMEOUT trigger refs
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -528,14 +563,16 @@ export default function FigmaViewerPage() {
                   >
                     <div style={canvasStyle}>
                       {currentPage && (
-                        <FigmaRenderer
-                          node={currentPage}
-                          scale={scale}
-                          selectedId={selectedNodeId}
-                          onNodeClick={handleNodeClick}
-                          onPrototypeNavigate={handlePrototypeNavigate}
-                          showOutlines={showOutlines}
-                        />
+                        <ErrorBoundary>
+                          <FigmaRenderer
+                            node={currentPage}
+                            scale={scale}
+                            selectedId={selectedNodeId}
+                            onNodeClick={handleNodeClick}
+                            onPrototypeNavigate={handlePrototypeNavigate}
+                            showOutlines={showOutlines}
+                          />
+                        </ErrorBoundary>
                       )}
                     </div>
                   </div>
@@ -609,14 +646,16 @@ export default function FigmaViewerPage() {
                         } as React.CSSProperties}
                       >
                         {currentPrototypeFrame && (
-                          <FigmaRenderer
-                            node={currentPrototypeFrame}
-                            scale={1}
-                            onNodeClick={handleNodeClick}
-                            onPrototypeNavigate={handlePrototypeNavigate}
-                            swapState={swapState}
-                            findNodeById={parser.findNodeById.bind(parser)}
-                          />
+                          <ErrorBoundary>
+                            <FigmaRenderer
+                              node={currentPrototypeFrame}
+                              scale={1}
+                              onNodeClick={handleNodeClick}
+                              onPrototypeNavigate={handlePrototypeNavigate}
+                              swapState={swapState}
+                              findNodeById={findNodeByIdCallback}
+                            />
+                          </ErrorBoundary>
                         )}
                       </div>
                       {/* Overlay */}
@@ -637,14 +676,16 @@ export default function FigmaViewerPage() {
                             } as React.CSSProperties}
                             onClick={(e) => e.stopPropagation()}
                           >
-                            <FigmaRenderer
-                              node={overlayFrame}
-                              scale={1}
-                              onNodeClick={handleNodeClick}
-                              onPrototypeNavigate={handlePrototypeNavigate}
-                              swapState={swapState}
-                              findNodeById={parser.findNodeById.bind(parser)}
-                            />
+                            <ErrorBoundary>
+                              <FigmaRenderer
+                                node={overlayFrame}
+                                scale={1}
+                                onNodeClick={handleNodeClick}
+                                onPrototypeNavigate={handlePrototypeNavigate}
+                                swapState={swapState}
+                                findNodeById={findNodeByIdCallback}
+                              />
+                            </ErrorBoundary>
                           </div>
                         </div>
                       )}

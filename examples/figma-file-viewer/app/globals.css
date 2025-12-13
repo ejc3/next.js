@@ -1,3 +1,76 @@
+/* CSS Custom Properties (Design Tokens) */
+:root {
+  /* Colors - Light Mode */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-bg-tertiary: #f3f4f6;
+  --color-bg-hover: #e5e7eb;
+  --color-bg-selected: #e0e7ff;
+  --color-bg-highlight: #fef3c7;
+
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #374151;
+  --color-text-tertiary: #6b7280;
+  --color-text-muted: #9ca3af;
+
+  --color-border: #e5e7eb;
+  --color-border-hover: #d1d5db;
+
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-accent-bg: #c7d2fe;
+
+  --color-error: #ef4444;
+  --color-error-bg: #fef2f2;
+
+  --color-scrollbar-track: #f1f1f1;
+  --color-scrollbar-thumb: #c1c1c1;
+  --color-scrollbar-thumb-hover: #a1a1a1;
+
+  --color-canvas-bg: #e5e7eb;
+  --color-canvas-pattern: #d1d5db;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-primary: #1f2937;
+    --color-bg-secondary: #111827;
+    --color-bg-tertiary: #374151;
+    --color-bg-hover: #4b5563;
+    --color-bg-selected: #312e81;
+    --color-bg-highlight: #78350f;
+
+    --color-text-primary: #f9fafb;
+    --color-text-secondary: #e5e7eb;
+    --color-text-tertiary: #9ca3af;
+    --color-text-muted: #6b7280;
+
+    --color-border: #374151;
+    --color-border-hover: #4b5563;
+
+    --color-accent: #818cf8;
+    --color-accent-hover: #6366f1;
+    --color-accent-bg: #3730a3;
+
+    --color-error: #f87171;
+    --color-error-bg: #450a0a;
+
+    --color-scrollbar-track: #374151;
+    --color-scrollbar-thumb: #6b7280;
+    --color-scrollbar-thumb-hover: #9ca3af;
+
+    --color-canvas-bg: #111827;
+    --color-canvas-pattern: #1f2937;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+  }
+}
+
 /* Reset and base styles */
 *,
 *::before,
@@ -14,6 +87,8 @@ body {
     Arial, "Noto Sans", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
 }
 
 /* Animations */
@@ -49,6 +124,7 @@ body {
 .figma-component,
 .figma-instance {
   transition: outline 0.15s ease;
+  will-change: outline;
 }
 
 .figma-frame:hover,
@@ -65,64 +141,77 @@ body {
 .figma-ellipse,
 .figma-line {
   transition: transform 0.2s ease;
+  will-change: transform;
 }
 
 /* Component Tree Styles */
 .component-tree {
   user-select: none;
+  background-color: var(--color-bg-primary);
+  /* Firefox scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
 }
 
+/* Note: !important needed to override inline styles from JS for hover states */
 .tree-node-row:hover {
-  background-color: #f3f4f6 !important;
+  background-color: var(--color-bg-hover) !important;
 }
 
-/* Scrollbar Styles */
+/* Scrollbar Styles - Webkit browsers */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--color-scrollbar-track);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c1c1c1;
+  background: var(--color-scrollbar-thumb);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a1a1a1;
+  background: var(--color-scrollbar-thumb-hover);
+}
+
+/* Firefox scrollbar global */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
 }
 
 /* Focus styles */
 button:focus-visible,
 input:focus-visible,
 select:focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
 /* File Upload hover effect */
+/* Note: !important needed to override inline styles from component */
 .file-uploader:hover {
-  border-color: #9ca3af !important;
-  background-color: #f3f4f6 !important;
+  border-color: var(--color-border-hover) !important;
+  background-color: var(--color-bg-tertiary) !important;
 }
 
 /* Selection highlight */
 ::selection {
-  background-color: #c7d2fe;
-  color: #1e1b4b;
+  background-color: var(--color-accent-bg);
+  color: var(--color-text-primary);
 }
 
 /* Canvas background pattern */
 .canvas-background {
-  background-color: #e5e7eb;
-  background-image: linear-gradient(45deg, #d1d5db 25%, transparent 25%),
-    linear-gradient(-45deg, #d1d5db 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #d1d5db 75%),
-    linear-gradient(-45deg, transparent 75%, #d1d5db 75%);
+  background-color: var(--color-canvas-bg);
+  background-image: linear-gradient(45deg, var(--color-canvas-pattern) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-canvas-pattern) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-canvas-pattern) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-canvas-pattern) 75%);
   background-size: 20px 20px;
   background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
 }
@@ -192,6 +281,7 @@ select:focus-visible {
   --prototype-easing: ease-in-out;
   transition: opacity var(--prototype-duration) var(--prototype-easing),
               transform var(--prototype-duration) var(--prototype-easing);
+  will-change: opacity, transform;
 }
 
 /* Dissolve transition - fade in/out */

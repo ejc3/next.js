@@ -13,7 +13,47 @@ import type {
   CanvasNode,
   BooleanOperationNode,
   Rectangle,
+  PrototypeInteraction,
+  SceneNode,
+  GeometryMixin,
 } from "../lib/figma-types";
+
+// CSS type for mix-blend-mode (subset of valid values)
+type CSSMixBlendMode =
+  | "normal"
+  | "multiply"
+  | "screen"
+  | "overlay"
+  | "darken"
+  | "lighten"
+  | "color-dodge"
+  | "color-burn"
+  | "hard-light"
+  | "soft-light"
+  | "difference"
+  | "exclusion"
+  | "hue"
+  | "saturation"
+  | "color"
+  | "luminosity";
+
+// Type for nodes with stroke dash properties
+interface StrokeDashNode {
+  dashPattern?: number[];
+  miterLimit?: number;
+}
+
+// Type for nodes that can have prototype interactions
+interface InteractableNode {
+  prototypeInteractions?: PrototypeInteraction[];
+}
+
+// Extended CSS properties with webkit vendor prefixes
+interface ExtendedCSSProperties extends CSSProperties {
+  WebkitBackdropFilter?: string;
+  WebkitLineClamp?: number;
+  WebkitBoxOrient?: "horizontal" | "vertical";
+}
 import {
   colorToRgba,
   paintToCSS,
@@ -55,7 +95,7 @@ function blendModeToCSS(blendMode: string | undefined): string | undefined {
 function applyBlendMode(s: CSSProperties, node: { blendMode?: string }): void {
   const blendMode = blendModeToCSS(node.blendMode);
   if (blendMode) {
-    s.mixBlendMode = blendMode as any;
+    s.mixBlendMode = blendMode as CSSMixBlendMode;
     // Create stacking context for proper blend mode isolation
     s.isolation = "isolate";
   }
@@ -77,7 +117,7 @@ function applyIsolation(s: CSSProperties, node: { opacity?: number; blendMode?: 
  * @param effectsIndependent - If true, effect sizes don't scale with the node
  */
 function applyEffects(
-  s: CSSProperties,
+  s: ExtendedCSSProperties,
   effects: Effect[] | undefined,
   scale: number,
   effectsIndependent?: boolean
@@ -133,7 +173,7 @@ function applyEffects(
     const backdropValue = backdropFilters.join(" ");
     s.backdropFilter = backdropValue;
     // Add webkit prefix for Safari support
-    (s as any).WebkitBackdropFilter = backdropValue;
+    s.WebkitBackdropFilter = backdropValue;
   }
 }
 
@@ -178,7 +218,7 @@ function getStrokeVectorEffect(node: {
 /**
  * Get SVG stroke-dasharray from Figma dashPattern
  */
-function getStrokeDashArray(node: any): string | undefined {
+function getStrokeDashArray(node: StrokeDashNode): string | undefined {
   if (!node.dashPattern || node.dashPattern.length === 0) return undefined;
   return node.dashPattern.join(" ");
 }
@@ -186,14 +226,14 @@ function getStrokeDashArray(node: any): string | undefined {
 /**
  * Get SVG stroke-miterlimit from Figma miterLimit
  */
-function getStrokeMiterLimit(node: any): number | undefined {
+function getStrokeMiterLimit(node: StrokeDashNode): number | undefined {
   return node.miterLimit;
 }
 
 /**
  * Check if a node has prototype interactions
  */
-function hasPrototypeInteractions(node: { prototypeInteractions?: any[] }): boolean {
+function hasPrototypeInteractions(node: InteractableNode): boolean {
   return Boolean(node.prototypeInteractions && node.prototypeInteractions.length > 0);
 }
 
@@ -203,7 +243,7 @@ function hasPrototypeInteractions(node: { prototypeInteractions?: any[] }): bool
  */
 function applyPrototypeIndicator(
   s: CSSProperties,
-  node: { prototypeInteractions?: any[] },
+  node: InteractableNode,
   showIndicator: boolean = true
 ): void {
   if (!showIndicator || !hasPrototypeInteractions(node)) return;
@@ -296,17 +336,30 @@ interface FigmaRendererProps {
  * Renders Figma nodes as equivalent React components
  */
 /**
+ * Validate and sanitize numeric input for SVG generation
+ */
+function sanitizeSVGNumber(value: number, fallback: number = 0, min: number = 0, max: number = 10000): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
+/**
  * Generate SVG path for a regular polygon
  */
 function generatePolygonPath(width: number, height: number, sides: number = 6): string {
-  const cx = width / 2;
-  const cy = height / 2;
-  const radius = Math.min(width, height) / 2;
+  // Validate inputs
+  const w = sanitizeSVGNumber(width, 100, 1, 10000);
+  const h = sanitizeSVGNumber(height, 100, 1, 10000);
+  const s = Math.round(sanitizeSVGNumber(sides, 6, 3, 100)); // At least 3 sides, max 100
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const radius = Math.min(w, h) / 2;
   const angleOffset = -Math.PI / 2; // Start from top
 
   const points: string[] = [];
-  for (let i = 0; i < sides; i++) {
-    const angle = angleOffset + (2 * Math.PI * i) / sides;
+  for (let i = 0; i < s; i++) {
+    const angle = angleOffset + (2 * Math.PI * i) / s;
     const x = cx + radius * Math.cos(angle);
     const y = cy + radius * Math.sin(angle);
     points.push(`${x.toFixed(3)},${y.toFixed(3)}`);
@@ -325,34 +378,40 @@ function generateSquirclePath(
   radius: number,
   smoothing: number = 0.6
 ): string {
-  // Clamp radius to half of smallest dimension
-  const maxRadius = Math.min(width, height) / 2;
-  const r = Math.min(radius, maxRadius);
+  // Validate inputs
+  const w = sanitizeSVGNumber(width, 100, 1, 10000);
+  const h = sanitizeSVGNumber(height, 100, 1, 10000);
+  const inputRadius = sanitizeSVGNumber(radius, 10, 0, 5000);
+  const smooth = sanitizeSVGNumber(smoothing, 0.6, 0, 1);
 
-  if (r <= 0 || smoothing <= 0) {
-    return `M 0 0 L ${width} 0 L ${width} ${height} L 0 ${height} Z`;
+  // Clamp radius to half of smallest dimension
+  const maxRadius = Math.min(w, h) / 2;
+  const r = Math.min(inputRadius, maxRadius);
+
+  if (r <= 0 || smooth <= 0) {
+    return `M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h} Z`;
   }
 
   // For squircle, extend curve further along edges
   // The smoothing factor controls how much (1.0 to 1.8x radius)
-  const p = 1 + smoothing * 0.8;
-  const arcLength = Math.min(r * p, width / 2, height / 2);
+  const p = 1 + smooth * 0.8;
+  const arcLength = Math.min(r * p, w / 2, h / 2);
 
   // Modified kappa for rounder iOS-style curves
-  const k = 0.5522847498 * (1 + smoothing * 0.3);
+  const k = 0.5522847498 * (1 + smooth * 0.3);
   const cp = r * k;
 
   // Build path clockwise from top-left
   return [
-    `M ${arcLength} 0`,
-    `L ${width - arcLength} 0`,
-    `C ${width - arcLength + cp} 0, ${width} ${arcLength - cp}, ${width} ${arcLength}`,
-    `L ${width} ${height - arcLength}`,
-    `C ${width} ${height - arcLength + cp}, ${width - arcLength + cp} ${height}, ${width - arcLength} ${height}`,
-    `L ${arcLength} ${height}`,
-    `C ${arcLength - cp} ${height}, 0 ${height - arcLength + cp}, 0 ${height - arcLength}`,
-    `L 0 ${arcLength}`,
-    `C 0 ${arcLength - cp}, ${arcLength - cp} 0, ${arcLength} 0`,
+    `M ${arcLength.toFixed(3)} 0`,
+    `L ${(w - arcLength).toFixed(3)} 0`,
+    `C ${(w - arcLength + cp).toFixed(3)} 0, ${w.toFixed(3)} ${(arcLength - cp).toFixed(3)}, ${w.toFixed(3)} ${arcLength.toFixed(3)}`,
+    `L ${w.toFixed(3)} ${(h - arcLength).toFixed(3)}`,
+    `C ${w.toFixed(3)} ${(h - arcLength + cp).toFixed(3)}, ${(w - arcLength + cp).toFixed(3)} ${h.toFixed(3)}, ${(w - arcLength).toFixed(3)} ${h.toFixed(3)}`,
+    `L ${arcLength.toFixed(3)} ${h.toFixed(3)}`,
+    `C ${(arcLength - cp).toFixed(3)} ${h.toFixed(3)}, 0 ${(h - arcLength + cp).toFixed(3)}, 0 ${(h - arcLength).toFixed(3)}`,
+    `L 0 ${arcLength.toFixed(3)}`,
+    `C 0 ${(arcLength - cp).toFixed(3)}, ${(arcLength - cp).toFixed(3)} 0, ${arcLength.toFixed(3)} 0`,
     `Z`
   ].join(" ");
 }
@@ -366,15 +425,21 @@ function generateStarPath(
   points: number = 5,
   innerRadiusRatio: number = 0.382
 ): string {
-  const cx = width / 2;
-  const cy = height / 2;
-  const outerRadius = Math.min(width, height) / 2;
-  const innerRadius = outerRadius * innerRadiusRatio;
+  // Validate inputs
+  const w = sanitizeSVGNumber(width, 100, 1, 10000);
+  const h = sanitizeSVGNumber(height, 100, 1, 10000);
+  const p = Math.round(sanitizeSVGNumber(points, 5, 3, 50)); // At least 3 points, max 50
+  const ratio = sanitizeSVGNumber(innerRadiusRatio, 0.382, 0.1, 0.9); // Inner radius between 10% and 90%
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const outerRadius = Math.min(w, h) / 2;
+  const innerRadius = outerRadius * ratio;
   const angleOffset = -Math.PI / 2; // Start from top
 
   const pathPoints: string[] = [];
-  for (let i = 0; i < points * 2; i++) {
-    const angle = angleOffset + (Math.PI * i) / points;
+  for (let i = 0; i < p * 2; i++) {
+    const angle = angleOffset + (Math.PI * i) / p;
     const radius = i % 2 === 0 ? outerRadius : innerRadius;
     const x = cx + radius * Math.cos(angle);
     const y = cy + radius * Math.sin(angle);
@@ -442,13 +507,14 @@ export function FigmaRenderer({
       e.stopPropagation();
 
       // Check if this node has prototype interactions
-      const interactions = (node as any).prototypeInteractions;
+      const sceneNode = node as SceneNode;
+      const interactions = sceneNode.prototypeInteractions;
       if (interactions && interactions.length > 0) {
         // Find ON_CLICK or ON_DRAG interaction
         const clickInteraction = interactions.find(
-          (i: any) => i.event?.interactionType === "ON_CLICK" ||
-                      i.event?.interactionType === "ON_DRAG" ||
-                      i.event?.interactionType === "DRAG"
+          (i) => i.event?.interactionType === "ON_CLICK" ||
+                 i.event?.interactionType === "ON_DRAG" ||
+                 i.event?.interactionType === "DRAG"
         );
         if (clickInteraction && clickInteraction.actions?.[0]) {
           const action = clickInteraction.actions[0];
@@ -694,7 +760,7 @@ export function FigmaRenderer({
 /**
  * Canvas (Page) Renderer
  */
-function CanvasRenderer({
+const CanvasRenderer = React.memo(function CanvasRenderer({
   node,
   scale,
   selectedId,
@@ -782,16 +848,16 @@ function CanvasRenderer({
       ))}
     </div>
   );
-}
+});
 
 /**
  * Get hover interaction from node's prototype interactions
  */
-function getHoverInteraction(node: { prototypeInteractions?: any[] }): any | null {
+function getHoverInteraction(node: InteractableNode): PrototypeInteraction | null {
   if (!node.prototypeInteractions) return null;
   return node.prototypeInteractions.find(
-    (i: any) => i.event?.interactionType === "ON_HOVER" ||
-                i.event?.interactionType === "MOUSE_ENTER"
+    (i) => i.event?.interactionType === "ON_HOVER" ||
+           i.event?.interactionType === "MOUSE_ENTER"
   ) || null;
 }
 
@@ -799,7 +865,7 @@ function getHoverInteraction(node: { prototypeInteractions?: any[] }): any | nul
  * Create hover handlers for prototype interactions
  */
 function useHoverHandlers(
-  node: { prototypeInteractions?: any[] },
+  node: InteractableNode,
   onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string) => void
 ) {
   const handleMouseEnter = useCallback(() => {
@@ -823,7 +889,7 @@ function useHoverHandlers(
     if (!onPrototypeNavigate || !node.prototypeInteractions) return;
     // Find MOUSE_LEAVE interaction
     const leaveInteraction = node.prototypeInteractions.find(
-      (i: any) => i.event?.interactionType === "MOUSE_LEAVE"
+      (i) => i.event?.interactionType === "MOUSE_LEAVE"
     );
     if (leaveInteraction && leaveInteraction.actions?.[0]) {
       const action = leaveInteraction.actions[0];
@@ -846,7 +912,7 @@ function useHoverHandlers(
 /**
  * Frame Renderer
  */
-function FrameRenderer({
+const FrameRenderer = React.memo(function FrameRenderer({
   node,
   scale,
   selectedId,
@@ -970,7 +1036,7 @@ function FrameRenderer({
     applyStroke(s, node, scale);
 
     // Effects (shadows, blur) with independent scaling support
-    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
 
     // Opacity
     if (node.opacity !== undefined && node.opacity < 1) {
@@ -983,9 +1049,9 @@ function FrameRenderer({
     }
 
     // Handle mask properties
-    if ((node as any).isMask) {
+    if (node.isMask) {
       // For luminance masks, add grayscale filter
-      if ((node as any).maskType === "LUMINANCE") {
+      if (node.maskType === "LUMINANCE") {
         s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
       }
     }
@@ -1036,12 +1102,12 @@ function FrameRenderer({
       ))}
     </div>
   );
-}
+});
 
 /**
  * Group Renderer
  */
-function GroupRenderer({
+const GroupRenderer = React.memo(function GroupRenderer({
   node,
   scale,
   selectedId,
@@ -1089,11 +1155,11 @@ function GroupRenderer({
     }
 
     // Effects with independent scaling support
-    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
 
     // Handle mask properties for groups
-    if ((node as any).isMask) {
-      if ((node as any).maskType === "LUMINANCE") {
+    if (node.isMask) {
+      if (node.maskType === "LUMINANCE") {
         s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
       }
     }
@@ -1135,12 +1201,12 @@ function GroupRenderer({
       ))}
     </div>
   );
-}
+});
 
 /**
  * Text Renderer
  */
-function TextRenderer({
+const TextRenderer = React.memo(function TextRenderer({
   node,
   scale,
   onClick,
@@ -1156,7 +1222,7 @@ function TextRenderer({
   parentBounds?: Rectangle;
 }) {
   const style = useMemo(() => {
-    const s: CSSProperties = {
+    const s: ExtendedCSSProperties = {
       ...wrapperStyle,
       whiteSpace: "pre-wrap",
       wordBreak: "break-word",
@@ -1245,8 +1311,8 @@ function TextRenderer({
         if (maxLines && maxLines > 1) {
           // Multi-line truncation using CSS line-clamp
           s.display = "-webkit-box";
-          (s as any).WebkitLineClamp = maxLines;
-          (s as any).WebkitBoxOrient = "vertical";
+          s.WebkitLineClamp = maxLines;
+          s.WebkitBoxOrient = "vertical";
           s.overflow = "hidden";
         } else {
           // Single line truncation
@@ -1311,12 +1377,12 @@ function TextRenderer({
       {node.characters}
     </span>
   );
-}
+});
 
 /**
  * Vector/Shape Renderer
  */
-function VectorRenderer({
+const VectorRenderer = React.memo(function VectorRenderer({
   node,
   scale,
   onClick,
@@ -1403,11 +1469,11 @@ function VectorRenderer({
     applyTransform(s, node, scale);
 
     // Effects with independent scaling support
-    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
 
     // Handle mask properties for vectors
-    if ((node as any).isMask) {
-      if ((node as any).maskType === "LUMINANCE") {
+    if (node.isMask) {
+      if (node.maskType === "LUMINANCE") {
         s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
       }
     }
@@ -1592,11 +1658,11 @@ function SVGVectorRenderer({
     }
 
     // Effects with independent scaling support
-    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
 
     // Handle mask properties for SVG vectors
-    if ((node as any).isMask) {
-      if ((node as any).maskType === "LUMINANCE") {
+    if (node.isMask) {
+      if (node.maskType === "LUMINANCE") {
         s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
       }
     }
@@ -1696,12 +1762,12 @@ function SVGVectorRenderer({
       </svg>
     </div>
   );
-}
+});
 
 /**
  * Boolean Operation Renderer
  */
-function BooleanRenderer({
+const BooleanRenderer = React.memo(function BooleanRenderer({
   node,
   scale,
   selectedId,
@@ -1765,11 +1831,11 @@ function BooleanRenderer({
     }
 
     // Effects with independent scaling support
-    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
 
     // Handle mask properties for boolean operations
-    if ((node as any).isMask) {
-      if ((node as any).maskType === "LUMINANCE") {
+    if (node.isMask) {
+      if (node.maskType === "LUMINANCE") {
         s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
       }
     }
@@ -1850,6 +1916,6 @@ function BooleanRenderer({
       ))}
     </div>
   );
-}
+});
 
 export default FigmaRenderer;
