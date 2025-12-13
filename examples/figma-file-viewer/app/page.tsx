@@ -7,7 +7,7 @@ import { FigmaRenderer } from "../components/FigmaRenderer";
 import { ComponentTree, TreeStats, TextContentList } from "../components/ComponentTree";
 import { FileUploader, SampleFileLoader } from "../components/FileUploader";
 
-type ViewMode = "render" | "tree" | "text" | "stats";
+type ViewMode = "render" | "tree" | "text" | "stats" | "prototype";
 type SidePanel = "tree" | "properties" | "none";
 
 export default function FigmaViewerPage() {
@@ -23,6 +23,12 @@ export default function FigmaViewerPage() {
   const [currentPageIndex, setCurrentPageIndex] = useState(0);
   const [treeSearchQuery, setTreeSearchQuery] = useState("");
   const [expandAllTree, setExpandAllTree] = useState(false);
+  const [prototypeFrameId, setPrototypeFrameId] = useState<string | undefined>();
+  const [prototypeTransition, setPrototypeTransition] = useState<{
+    type: string;
+    direction?: string;
+    isAnimating: boolean;
+  } | null>(null);
 
   // Parse the file content
   const handleFileLoad = useCallback(
@@ -89,6 +95,38 @@ export default function FigmaViewerPage() {
     return parser.extractTextContent();
   }, [figmaFile, parser]);
 
+  // Get prototype starting frame and device settings
+  const prototypeInfo = useMemo(() => {
+    if (!currentPage || !("children" in currentPage)) return null;
+
+    // Find prototype device settings (usually on the canvas node)
+    const prototypeDevice = (currentPage as any).prototypeDevice;
+
+    // Find prototype starting point or first top-level frame
+    const frames = ((currentPage as any).children || []).filter(
+      (child: FigmaNode) => child.type === "FRAME" || child.type === "COMPONENT"
+    );
+
+    // Look for prototypeStartNodeID
+    const startNodeId = (currentPage as any).prototypeStartNodeID;
+    let startFrame = frames.find((f: FigmaNode) => f.id === startNodeId) || frames[0];
+
+    return {
+      device: prototypeDevice,
+      frames,
+      startFrame,
+      startFrameId: startFrame?.id,
+    };
+  }, [currentPage]);
+
+  // Get current prototype frame
+  const currentPrototypeFrame = useMemo(() => {
+    if (!prototypeFrameId) {
+      return prototypeInfo?.startFrame || null;
+    }
+    return parser.findNodeById(prototypeFrameId);
+  }, [prototypeFrameId, prototypeInfo, parser]);
+
   // Get selected node
   const selectedNode = useMemo(() => {
     if (!selectedNodeId || !figmaFile) return null;
@@ -107,6 +145,42 @@ export default function FigmaViewerPage() {
   // Handle prototype navigation
   const handlePrototypeNavigate = useCallback(
     (targetNodeId: string, transitionType?: string) => {
+      // In prototype mode, switch to the target frame with transition
+      if (viewMode === "prototype") {
+        // Determine transition type and duration
+        const transition = transitionType || "INSTANT";
+        const duration = transition === "INSTANT" ? 0 : 300; // ms
+
+        if (duration > 0) {
+          // Start transition animation
+          setPrototypeTransition({
+            type: transition,
+            direction: transition.includes("IN") ? "in" : transition.includes("OUT") ? "out" : undefined,
+            isAnimating: true,
+          });
+
+          // Change frame partway through for some transitions
+          if (transition === "DISSOLVE" || transition === "SMART_ANIMATE") {
+            // Fade out, then change, then fade in
+            setTimeout(() => {
+              setPrototypeFrameId(targetNodeId);
+            }, duration / 2);
+          } else {
+            // Slide animations - change immediately
+            setPrototypeFrameId(targetNodeId);
+          }
+
+          // End transition
+          setTimeout(() => {
+            setPrototypeTransition(null);
+          }, duration);
+        } else {
+          // Instant transition
+          setPrototypeFrameId(targetNodeId);
+        }
+        return;
+      }
+
       // Find the target node
       const targetNode = parser.findNodeById(targetNodeId);
       if (targetNode) {
@@ -127,7 +201,7 @@ export default function FigmaViewerPage() {
         }, 100);
       }
     },
-    [parser]
+    [parser, viewMode]
   );
 
   // Reset viewer
@@ -198,11 +272,17 @@ export default function FigmaViewerPage() {
               <div style={toolbarLeftStyle}>
                 {/* View Mode Tabs */}
                 <div style={tabsStyle}>
-                  {(["render", "tree", "text", "stats"] as ViewMode[]).map(
+                  {(["render", "prototype", "tree", "text", "stats"] as ViewMode[]).map(
                     (mode) => (
                       <button
                         key={mode}
-                        onClick={() => setViewMode(mode)}
+                        onClick={() => {
+                          setViewMode(mode);
+                          // Reset prototype frame when entering prototype mode
+                          if (mode === "prototype") {
+                            setPrototypeFrameId(undefined);
+                          }
+                        }}
                         style={{
                           ...tabStyle,
                           backgroundColor:
@@ -210,14 +290,14 @@ export default function FigmaViewerPage() {
                           color: viewMode === mode ? "#fff" : "#6b7280",
                         }}
                       >
-                        {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                        {mode === "prototype" ? "▶ Prototype" : mode.charAt(0).toUpperCase() + mode.slice(1)}
                       </button>
                     )
                   )}
                 </div>
 
                 {/* Page Selector */}
-                {pages.length > 1 && viewMode === "render" && (
+                {pages.length > 1 && (viewMode === "render" || viewMode === "prototype") && (
                   <select
                     value={currentPageIndex}
                     onChange={(e) =>
@@ -235,7 +315,7 @@ export default function FigmaViewerPage() {
               </div>
 
               <div style={toolbarRightStyle}>
-                {viewMode === "render" && (
+                {(viewMode === "render" || viewMode === "prototype") && (
                   <>
                     {/* Zoom Controls */}
                     <div style={zoomControlsStyle}>
@@ -375,6 +455,73 @@ export default function FigmaViewerPage() {
                     </div>
                   )}
                 </>
+              )}
+
+              {viewMode === "prototype" && (
+                <div style={prototypeContainerStyle}>
+                  {/* Device Frame */}
+                  <div style={deviceFrameStyle}>
+                    <div style={deviceScreenStyle}>
+                      {/* Frame name */}
+                      <div style={prototypeFrameNameStyle}>
+                        {currentPrototypeFrame?.name || "No frame selected"}
+                      </div>
+                      {/* Frame content */}
+                      <div
+                        className={
+                          prototypeTransition?.isAnimating
+                            ? `prototype-transition prototype-transition-${prototypeTransition.type.toLowerCase()}`
+                            : undefined
+                        }
+                        style={{
+                          ...prototypeCanvasStyle,
+                          transform: `scale(${scale})`,
+                          transformOrigin: "top left",
+                        }}
+                      >
+                        {currentPrototypeFrame && (
+                          <FigmaRenderer
+                            node={currentPrototypeFrame}
+                            scale={1}
+                            onNodeClick={handleNodeClick}
+                            onPrototypeNavigate={handlePrototypeNavigate}
+                          />
+                        )}
+                      </div>
+                    </div>
+                    {/* Device info */}
+                    {prototypeInfo?.device && (
+                      <div style={deviceInfoStyle}>
+                        {prototypeInfo.device.presetIdentifier?.replace(/_/g, " ") || "Custom Device"}
+                      </div>
+                    )}
+                  </div>
+                  {/* Frame navigation */}
+                  {prototypeInfo?.frames && prototypeInfo.frames.length > 1 && (
+                    <div style={prototypeNavStyle}>
+                      <span style={prototypeNavLabelStyle}>Frames:</span>
+                      {prototypeInfo.frames.map((frame: FigmaNode) => (
+                        <button
+                          key={frame.id}
+                          onClick={() => setPrototypeFrameId(frame.id)}
+                          style={{
+                            ...prototypeNavButtonStyle,
+                            backgroundColor:
+                              (prototypeFrameId || prototypeInfo.startFrameId) === frame.id
+                                ? "#4f46e5"
+                                : "#e5e7eb",
+                            color:
+                              (prototypeFrameId || prototypeInfo.startFrameId) === frame.id
+                                ? "#fff"
+                                : "#374151",
+                          }}
+                        >
+                          {frame.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               )}
 
               {viewMode === "tree" && (
@@ -891,4 +1038,88 @@ const textPreviewStyle: React.CSSProperties = {
   borderRadius: 4,
   whiteSpace: "pre-wrap",
   wordBreak: "break-word",
+};
+
+// Prototype mode styles
+const prototypeContainerStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  justifyContent: "center",
+  height: "100%",
+  padding: 32,
+  backgroundColor: "#1f2937",
+  gap: 24,
+};
+
+const deviceFrameStyle: React.CSSProperties = {
+  display: "flex",
+  flexDirection: "column",
+  alignItems: "center",
+  backgroundColor: "#111827",
+  borderRadius: 40,
+  padding: "40px 16px",
+  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+  border: "4px solid #374151",
+};
+
+const deviceScreenStyle: React.CSSProperties = {
+  backgroundColor: "#fff",
+  borderRadius: 8,
+  overflow: "hidden",
+  position: "relative",
+  minWidth: 320,
+  minHeight: 480,
+  maxWidth: "90vw",
+  maxHeight: "70vh",
+};
+
+const prototypeFrameNameStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  padding: "8px 12px",
+  backgroundColor: "rgba(0, 0, 0, 0.7)",
+  color: "#fff",
+  fontSize: 12,
+  fontWeight: 500,
+  zIndex: 10,
+};
+
+const prototypeCanvasStyle: React.CSSProperties = {
+  marginTop: 32,
+  position: "relative",
+};
+
+const deviceInfoStyle: React.CSSProperties = {
+  marginTop: 16,
+  fontSize: 11,
+  color: "#9ca3af",
+  textTransform: "uppercase",
+  letterSpacing: "0.05em",
+};
+
+const prototypeNavStyle: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+  justifyContent: "center",
+  maxWidth: "100%",
+};
+
+const prototypeNavLabelStyle: React.CSSProperties = {
+  color: "#9ca3af",
+  fontSize: 12,
+  fontWeight: 500,
+};
+
+const prototypeNavButtonStyle: React.CSSProperties = {
+  padding: "6px 12px",
+  borderRadius: 6,
+  border: "none",
+  fontSize: 12,
+  cursor: "pointer",
+  transition: "all 0.15s ease",
 };

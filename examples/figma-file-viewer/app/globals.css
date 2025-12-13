@@ -186,6 +186,131 @@ select:focus-visible {
   animation: prototypeHighlight 1s ease-out forwards;
 }
 
+/* Prototype transition animations */
+.prototype-transition {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+/* Dissolve transition - fade in/out */
+@keyframes prototypeDissolve {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+
+.prototype-transition-dissolve {
+  animation: prototypeDissolve 0.3s ease-in-out;
+}
+
+/* Smart animate - similar to dissolve with subtle scale */
+@keyframes prototypeSmartAnimate {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0;
+    transform: scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.prototype-transition-smart_animate {
+  animation: prototypeSmartAnimate 0.3s ease-in-out;
+}
+
+/* Slide in from right */
+@keyframes prototypeSlideIn {
+  0% {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.prototype-transition-slide_in {
+  animation: prototypeSlideIn 0.3s ease-out;
+}
+
+/* Slide out to left */
+@keyframes prototypeSlideOut {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+}
+
+.prototype-transition-slide_out {
+  animation: prototypeSlideOut 0.3s ease-in;
+}
+
+/* Move in from bottom */
+@keyframes prototypeMoveIn {
+  0% {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.prototype-transition-move_in {
+  animation: prototypeMoveIn 0.3s ease-out;
+}
+
+/* Move out to top */
+@keyframes prototypeMoveOut {
+  0% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+}
+
+.prototype-transition-move_out {
+  animation: prototypeMoveOut 0.3s ease-in;
+}
+
+/* Push animation - combined with slide */
+@keyframes prototypePush {
+  0% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(0);
+  }
+}
+
+.prototype-transition-push {
+  animation: prototypePush 0.3s ease-out;
+}
+
+/* Instant - no animation */
+.prototype-transition-instant {
+  transition: none;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .side-panel {
