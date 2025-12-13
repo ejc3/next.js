@@ -1,0 +1,959 @@
+{
+  "name": "Kitchen Sink - All Features Test",
+  "document": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "0:1",
+        "name": "Kitchen Sink",
+        "type": "CANVAS",
+        "backgroundColor": { "r": 0.95, "g": 0.95, "b": 0.97, "a": 1 },
+        "children": [
+          {
+            "id": "1:0",
+            "name": "Main Frame",
+            "type": "FRAME",
+            "absoluteBoundingBox": { "x": 0, "y": 0, "width": 1200, "height": 2400 },
+            "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+            "clipsContent": true,
+            "children": [
+              {
+                "id": "section:shapes",
+                "name": "1. Basic Shapes",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 20, "width": 1160, "height": 200 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.98, "g": 0.98, "b": 1, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:shapes",
+                    "name": "Basic Shapes",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 30, "width": 200, "height": 24 },
+                    "characters": "1. Basic Shapes",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "shape:rect",
+                    "name": "Rectangle",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 40, "y": 70, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } }],
+                    "cornerRadius": 8
+                  },
+                  {
+                    "id": "shape:rounded",
+                    "name": "Per-Corner Radius",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 160, "y": 70, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.35, "g": 0.78, "b": 0.55, "a": 1 } }],
+                    "rectangleCornerRadii": [0, 20, 0, 20]
+                  },
+                  {
+                    "id": "shape:ellipse",
+                    "name": "Ellipse",
+                    "type": "ELLIPSE",
+                    "absoluteBoundingBox": { "x": 280, "y": 70, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.93, "g": 0.35, "b": 0.47, "a": 1 } }]
+                  },
+                  {
+                    "id": "shape:star",
+                    "name": "Star",
+                    "type": "STAR",
+                    "absoluteBoundingBox": { "x": 400, "y": 70, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.98, "g": 0.75, "b": 0.18, "a": 1 } }],
+                    "pointCount": 5,
+                    "starInnerScale": 0.382
+                  },
+                  {
+                    "id": "shape:polygon",
+                    "name": "Hexagon",
+                    "type": "REGULAR_POLYGON",
+                    "absoluteBoundingBox": { "x": 520, "y": 70, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.61, "g": 0.35, "b": 0.96, "a": 1 } }],
+                    "pointCount": 6
+                  },
+                  {
+                    "id": "shape:squircle",
+                    "name": "Squircle (iOS)",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 640, "y": 70, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.96, "g": 0.47, "b": 0.13, "a": 1 } }],
+                    "cornerRadius": 24,
+                    "cornerSmoothing": 0.6
+                  },
+                  {
+                    "id": "shape:line",
+                    "name": "Line",
+                    "type": "LINE",
+                    "absoluteBoundingBox": { "x": 760, "y": 120, "width": 100, "height": 0 },
+                    "strokes": [{ "type": "SOLID", "color": { "r": 0.4, "g": 0.4, "b": 0.5, "a": 1 } }],
+                    "strokeWeight": 3
+                  }
+                ]
+              },
+              {
+                "id": "section:strokes",
+                "name": "2. Strokes",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 240, "width": 1160, "height": 200 },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0.98, "b": 0.95, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:strokes",
+                    "name": "Strokes",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 250, "width": 200, "height": 24 },
+                    "characters": "2. Strokes",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "stroke:center",
+                    "name": "Center Stroke",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 40, "y": 290, "width": 80, "height": 80 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.9, "g": 0.95, "b": 1, "a": 1 } }],
+                    "strokes": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.4, "b": 0.8, "a": 1 } }],
+                    "strokeWeight": 4,
+                    "strokeAlign": "CENTER"
+                  },
+                  {
+                    "id": "stroke:inside",
+                    "name": "Inside Stroke",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 140, "y": 290, "width": 80, "height": 80 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 1, "b": 0.9, "a": 1 } }],
+                    "strokes": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.6, "b": 0.3, "a": 1 } }],
+                    "strokeWeight": 4,
+                    "strokeAlign": "INSIDE"
+                  },
+                  {
+                    "id": "stroke:outside",
+                    "name": "Outside Stroke",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 240, "y": 290, "width": 80, "height": 80 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0.9, "b": 0.9, "a": 1 } }],
+                    "strokes": [{ "type": "SOLID", "color": { "r": 0.8, "g": 0.2, "b": 0.2, "a": 1 } }],
+                    "strokeWeight": 4,
+                    "strokeAlign": "OUTSIDE"
+                  },
+                  {
+                    "id": "stroke:dashed",
+                    "name": "Dashed",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 340, "y": 290, "width": 80, "height": 80 },
+                    "fills": [],
+                    "strokes": [{ "type": "SOLID", "color": { "r": 0.5, "g": 0.3, "b": 0.7, "a": 1 } }],
+                    "strokeWeight": 3,
+                    "dashPattern": [8, 4]
+                  },
+                  {
+                    "id": "stroke:caps",
+                    "name": "Round Caps",
+                    "type": "LINE",
+                    "absoluteBoundingBox": { "x": 440, "y": 330, "width": 80, "height": 0 },
+                    "strokes": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }],
+                    "strokeWeight": 8,
+                    "strokeCap": "ROUND"
+                  }
+                ]
+              },
+              {
+                "id": "section:gradients",
+                "name": "3. Gradients",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 460, "width": 1160, "height": 200 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 0.98, "b": 0.98, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:gradients",
+                    "name": "Gradients",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 470, "width": 200, "height": 24 },
+                    "characters": "3. Gradients",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "grad:linear",
+                    "name": "Linear",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 40, "y": 510, "width": 120, "height": 120 },
+                    "fills": [{
+                      "type": "GRADIENT_LINEAR",
+                      "gradientHandlePositions": [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+                      "gradientStops": [
+                        { "position": 0, "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } },
+                        { "position": 1, "color": { "r": 0.61, "g": 0.35, "b": 0.96, "a": 1 } }
+                      ]
+                    }],
+                    "cornerRadius": 8
+                  },
+                  {
+                    "id": "grad:radial",
+                    "name": "Radial",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 180, "y": 510, "width": 120, "height": 120 },
+                    "fills": [{
+                      "type": "GRADIENT_RADIAL",
+                      "gradientStops": [
+                        { "position": 0, "color": { "r": 0.98, "g": 0.75, "b": 0.18, "a": 1 } },
+                        { "position": 1, "color": { "r": 0.96, "g": 0.47, "b": 0.13, "a": 1 } }
+                      ]
+                    }],
+                    "cornerRadius": 8
+                  },
+                  {
+                    "id": "grad:angular",
+                    "name": "Angular",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 320, "y": 510, "width": 120, "height": 120 },
+                    "fills": [{
+                      "type": "GRADIENT_ANGULAR",
+                      "gradientStops": [
+                        { "position": 0, "color": { "r": 0.93, "g": 0.35, "b": 0.47, "a": 1 } },
+                        { "position": 0.33, "color": { "r": 0.35, "g": 0.78, "b": 0.55, "a": 1 } },
+                        { "position": 0.66, "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } },
+                        { "position": 1, "color": { "r": 0.93, "g": 0.35, "b": 0.47, "a": 1 } }
+                      ]
+                    }],
+                    "cornerRadius": 8
+                  },
+                  {
+                    "id": "grad:diamond",
+                    "name": "Diamond",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 460, "y": 510, "width": 120, "height": 120 },
+                    "fills": [{
+                      "type": "GRADIENT_DIAMOND",
+                      "gradientStops": [
+                        { "position": 0, "color": { "r": 1, "g": 1, "b": 1, "a": 1 } },
+                        { "position": 1, "color": { "r": 0.61, "g": 0.35, "b": 0.96, "a": 1 } }
+                      ]
+                    }],
+                    "cornerRadius": 8
+                  }
+                ]
+              },
+              {
+                "id": "section:effects",
+                "name": "4. Effects",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 680, "width": 1160, "height": 200 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.98, "g": 0.95, "b": 1, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:effects",
+                    "name": "Effects",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 690, "width": 200, "height": 24 },
+                    "characters": "4. Effects (Shadows & Blur)",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "effect:drop",
+                    "name": "Drop Shadow",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 40, "y": 730, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+                    "cornerRadius": 12,
+                    "effects": [{
+                      "type": "DROP_SHADOW",
+                      "visible": true,
+                      "color": { "r": 0, "g": 0, "b": 0, "a": 0.25 },
+                      "offset": { "x": 4, "y": 8 },
+                      "radius": 16,
+                      "spread": 0
+                    }]
+                  },
+                  {
+                    "id": "effect:inner",
+                    "name": "Inner Shadow",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 180, "y": 730, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 } }],
+                    "cornerRadius": 12,
+                    "effects": [{
+                      "type": "INNER_SHADOW",
+                      "visible": true,
+                      "color": { "r": 0, "g": 0, "b": 0.3, "a": 0.3 },
+                      "offset": { "x": 2, "y": 4 },
+                      "radius": 8
+                    }]
+                  },
+                  {
+                    "id": "effect:blur",
+                    "name": "Layer Blur",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 320, "y": 730, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } }],
+                    "cornerRadius": 12,
+                    "effects": [{
+                      "type": "LAYER_BLUR",
+                      "visible": true,
+                      "radius": 4
+                    }]
+                  },
+                  {
+                    "id": "effect:spread",
+                    "name": "Shadow + Spread",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 460, "y": 730, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+                    "cornerRadius": 12,
+                    "effects": [{
+                      "type": "DROP_SHADOW",
+                      "visible": true,
+                      "color": { "r": 0.61, "g": 0.35, "b": 0.96, "a": 0.4 },
+                      "offset": { "x": 0, "y": 4 },
+                      "radius": 12,
+                      "spread": 4
+                    }]
+                  },
+                  {
+                    "id": "effect:multi",
+                    "name": "Multiple Effects",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 600, "y": 730, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+                    "cornerRadius": 12,
+                    "effects": [
+                      {
+                        "type": "DROP_SHADOW",
+                        "visible": true,
+                        "color": { "r": 0, "g": 0, "b": 0, "a": 0.1 },
+                        "offset": { "x": 0, "y": 1 },
+                        "radius": 2
+                      },
+                      {
+                        "type": "DROP_SHADOW",
+                        "visible": true,
+                        "color": { "r": 0, "g": 0, "b": 0, "a": 0.1 },
+                        "offset": { "x": 0, "y": 4 },
+                        "radius": 8
+                      },
+                      {
+                        "type": "DROP_SHADOW",
+                        "visible": true,
+                        "color": { "r": 0, "g": 0, "b": 0, "a": 0.1 },
+                        "offset": { "x": 0, "y": 16 },
+                        "radius": 24
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "section:blend",
+                "name": "5. Blend Modes & Opacity",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 900, "width": 1160, "height": 200 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 0.97, "b": 1, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:blend",
+                    "name": "Blend Modes",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 910, "width": 300, "height": 24 },
+                    "characters": "5. Blend Modes & Opacity",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "blend:base",
+                    "name": "Base",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 40, "y": 950, "width": 100, "height": 100 },
+                    "fills": [{
+                      "type": "GRADIENT_LINEAR",
+                      "gradientHandlePositions": [{ "x": 0, "y": 0 }, { "x": 1, "y": 0 }],
+                      "gradientStops": [
+                        { "position": 0, "color": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+                        { "position": 0.5, "color": { "r": 0, "g": 1, "b": 0, "a": 1 } },
+                        { "position": 1, "color": { "r": 0, "g": 0, "b": 1, "a": 1 } }
+                      ]
+                    }]
+                  },
+                  {
+                    "id": "blend:multiply-group",
+                    "name": "Multiply Group",
+                    "type": "GROUP",
+                    "absoluteBoundingBox": { "x": 160, "y": 950, "width": 100, "height": 100 },
+                    "children": [
+                      {
+                        "id": "blend:multiply-base",
+                        "name": "Base",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 160, "y": 950, "width": 100, "height": 100 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } }]
+                      },
+                      {
+                        "id": "blend:multiply-overlay",
+                        "name": "Multiply Overlay",
+                        "type": "ELLIPSE",
+                        "absoluteBoundingBox": { "x": 185, "y": 975, "width": 50, "height": 50 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.93, "g": 0.35, "b": 0.47, "a": 1 } }],
+                        "blendMode": "MULTIPLY"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "blend:screen-group",
+                    "name": "Screen Group",
+                    "type": "GROUP",
+                    "absoluteBoundingBox": { "x": 280, "y": 950, "width": 100, "height": 100 },
+                    "children": [
+                      {
+                        "id": "blend:screen-base",
+                        "name": "Base",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 280, "y": 950, "width": 100, "height": 100 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.4, "a": 1 } }]
+                      },
+                      {
+                        "id": "blend:screen-overlay",
+                        "name": "Screen Overlay",
+                        "type": "ELLIPSE",
+                        "absoluteBoundingBox": { "x": 305, "y": 975, "width": 50, "height": 50 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.35, "g": 0.78, "b": 0.55, "a": 1 } }],
+                        "blendMode": "SCREEN"
+                      }
+                    ]
+                  },
+                  {
+                    "id": "blend:opacity50",
+                    "name": "50% Opacity",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 400, "y": 950, "width": 100, "height": 100 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.61, "g": 0.35, "b": 0.96, "a": 1 } }],
+                    "opacity": 0.5,
+                    "cornerRadius": 12
+                  },
+                  {
+                    "id": "blend:group-opacity",
+                    "name": "Group Opacity",
+                    "type": "GROUP",
+                    "absoluteBoundingBox": { "x": 520, "y": 950, "width": 100, "height": 100 },
+                    "opacity": 0.6,
+                    "children": [
+                      {
+                        "id": "blend:go-1",
+                        "name": "Circle 1",
+                        "type": "ELLIPSE",
+                        "absoluteBoundingBox": { "x": 520, "y": 950, "width": 70, "height": 70 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.93, "g": 0.35, "b": 0.47, "a": 1 } }]
+                      },
+                      {
+                        "id": "blend:go-2",
+                        "name": "Circle 2",
+                        "type": "ELLIPSE",
+                        "absoluteBoundingBox": { "x": 550, "y": 980, "width": 70, "height": 70 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } }]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "section:text",
+                "name": "6. Text Rendering",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 1120, "width": 1160, "height": 220 },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0.98, "b": 0.95, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:text",
+                    "name": "Text",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 1130, "width": 200, "height": 24 },
+                    "characters": "6. Text Rendering",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "text:weights",
+                    "name": "Weights",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 1165, "width": 300, "height": 80 },
+                    "characters": "Light Regular Medium Bold Black",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": 400,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "text:align-left",
+                    "name": "Left Aligned",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 360, "y": 1165, "width": 150, "height": 40 },
+                    "characters": "Left aligned text\nSecond line",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": 400,
+                      "textAlignHorizontal": "LEFT",
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "text:align-center",
+                    "name": "Center Aligned",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 530, "y": 1165, "width": 150, "height": 40 },
+                    "characters": "Center aligned\nSecond line",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": 400,
+                      "textAlignHorizontal": "CENTER",
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "text:decoration",
+                    "name": "Decorations",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 700, "y": 1165, "width": 200, "height": 60 },
+                    "characters": "Underlined Text",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": 400,
+                      "textDecoration": "UNDERLINE",
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "text:case",
+                    "name": "Text Cases",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 1250, "width": 200, "height": 30 },
+                    "characters": "uppercase text",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 14,
+                      "fontWeight": 500,
+                      "textCase": "UPPER",
+                      "letterSpacing": 2,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.4, "g": 0.4, "b": 0.5, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "text:italic",
+                    "name": "Italic",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 260, "y": 1250, "width": 200, "height": 30 },
+                    "characters": "Italic styled text",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 16,
+                      "fontWeight": 400,
+                      "fontStyle": "italic",
+                      "italic": true,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  }
+                ]
+              },
+              {
+                "id": "section:transforms",
+                "name": "7. Transforms",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 1360, "width": 1160, "height": 200 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 1, "b": 0.95, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:transforms",
+                    "name": "Transforms",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 1370, "width": 200, "height": 24 },
+                    "characters": "7. Transforms",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "transform:rotate45",
+                    "name": "Rotated 45°",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 80, "y": 1420, "width": 60, "height": 60 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } }],
+                    "relativeTransform": [[0.707, -0.707, 0], [0.707, 0.707, 0]]
+                  },
+                  {
+                    "id": "transform:scale",
+                    "name": "Non-uniform Scale",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 200, "y": 1430, "width": 100, "height": 50 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.35, "g": 0.78, "b": 0.55, "a": 1 } }],
+                    "strokes": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.5, "b": 0.3, "a": 1 } }],
+                    "strokeWeight": 2,
+                    "relativeTransform": [[1.5, 0, 0], [0, 0.8, 0]]
+                  },
+                  {
+                    "id": "transform:skew",
+                    "name": "Skewed",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 350, "y": 1420, "width": 80, "height": 80 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.93, "g": 0.35, "b": 0.47, "a": 1 } }],
+                    "relativeTransform": [[1, 0.3, 0], [0, 1, 0]]
+                  }
+                ]
+              },
+              {
+                "id": "section:clipping",
+                "name": "8. Clipping & Masks",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 1580, "width": 1160, "height": 200 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.98, "g": 0.98, "b": 1, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:clipping",
+                    "name": "Clipping",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 1590, "width": 200, "height": 24 },
+                    "characters": "8. Clipping & Masks",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "clip:frame",
+                    "name": "Clipping Frame",
+                    "type": "FRAME",
+                    "absoluteBoundingBox": { "x": 40, "y": 1630, "width": 120, "height": 120 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.9, "g": 0.9, "b": 0.95, "a": 1 } }],
+                    "cornerRadius": 16,
+                    "clipsContent": true,
+                    "children": [
+                      {
+                        "id": "clip:child",
+                        "name": "Overflowing Child",
+                        "type": "ELLIPSE",
+                        "absoluteBoundingBox": { "x": 60, "y": 1650, "width": 120, "height": 120 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.61, "g": 0.35, "b": 0.96, "a": 1 } }]
+                      }
+                    ]
+                  },
+                  {
+                    "id": "clip:squircle-frame",
+                    "name": "Squircle Clip",
+                    "type": "FRAME",
+                    "absoluteBoundingBox": { "x": 200, "y": 1630, "width": 120, "height": 120 },
+                    "fills": [],
+                    "cornerRadius": 28,
+                    "cornerSmoothing": 0.6,
+                    "clipsContent": true,
+                    "children": [
+                      {
+                        "id": "clip:squircle-content",
+                        "name": "Gradient Content",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 200, "y": 1630, "width": 120, "height": 120 },
+                        "fills": [{
+                          "type": "GRADIENT_LINEAR",
+                          "gradientHandlePositions": [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+                          "gradientStops": [
+                            { "position": 0, "color": { "r": 0.98, "g": 0.75, "b": 0.18, "a": 1 } },
+                            { "position": 1, "color": { "r": 0.96, "g": 0.47, "b": 0.13, "a": 1 } }
+                          ]
+                        }]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "section:autolayout",
+                "name": "9. Auto Layout",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 1800, "width": 1160, "height": 220 },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0.97, "b": 0.95, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:autolayout",
+                    "name": "Auto Layout",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 1810, "width": 200, "height": 24 },
+                    "characters": "9. Auto Layout",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "al:horizontal",
+                    "name": "Horizontal Stack",
+                    "type": "FRAME",
+                    "absoluteBoundingBox": { "x": 40, "y": 1850, "width": 320, "height": 60 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 0.95, "b": 1, "a": 1 } }],
+                    "cornerRadius": 8,
+                    "layoutMode": "HORIZONTAL",
+                    "itemSpacing": 12,
+                    "paddingLeft": 16,
+                    "paddingRight": 16,
+                    "paddingTop": 12,
+                    "paddingBottom": 12,
+                    "primaryAxisAlignItems": "MIN",
+                    "counterAxisAlignItems": "CENTER",
+                    "children": [
+                      {
+                        "id": "al:h1",
+                        "name": "Item 1",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 56, "y": 1862, "width": 36, "height": 36 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } }],
+                        "cornerRadius": 6
+                      },
+                      {
+                        "id": "al:h2",
+                        "name": "Item 2",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 104, "y": 1862, "width": 36, "height": 36 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.35, "g": 0.78, "b": 0.55, "a": 1 } }],
+                        "cornerRadius": 6
+                      },
+                      {
+                        "id": "al:h3",
+                        "name": "Item 3",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 152, "y": 1862, "width": 36, "height": 36 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.93, "g": 0.35, "b": 0.47, "a": 1 } }],
+                        "cornerRadius": 6
+                      }
+                    ]
+                  },
+                  {
+                    "id": "al:vertical",
+                    "name": "Vertical Stack",
+                    "type": "FRAME",
+                    "absoluteBoundingBox": { "x": 400, "y": 1850, "width": 60, "height": 150 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0.95, "b": 0.95, "a": 1 } }],
+                    "cornerRadius": 8,
+                    "layoutMode": "VERTICAL",
+                    "itemSpacing": 8,
+                    "paddingLeft": 12,
+                    "paddingRight": 12,
+                    "paddingTop": 12,
+                    "paddingBottom": 12,
+                    "primaryAxisAlignItems": "MIN",
+                    "counterAxisAlignItems": "CENTER",
+                    "children": [
+                      {
+                        "id": "al:v1",
+                        "name": "Item 1",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 412, "y": 1862, "width": 36, "height": 36 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.98, "g": 0.75, "b": 0.18, "a": 1 } }],
+                        "cornerRadius": 6
+                      },
+                      {
+                        "id": "al:v2",
+                        "name": "Item 2",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 412, "y": 1906, "width": 36, "height": 36 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.61, "g": 0.35, "b": 0.96, "a": 1 } }],
+                        "cornerRadius": 6
+                      },
+                      {
+                        "id": "al:v3",
+                        "name": "Item 3",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 412, "y": 1950, "width": 36, "height": 36 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.96, "g": 0.47, "b": 0.13, "a": 1 } }],
+                        "cornerRadius": 6
+                      }
+                    ]
+                  },
+                  {
+                    "id": "al:space-between",
+                    "name": "Space Between",
+                    "type": "FRAME",
+                    "absoluteBoundingBox": { "x": 500, "y": 1850, "width": 300, "height": 60 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 1, "b": 0.95, "a": 1 } }],
+                    "cornerRadius": 8,
+                    "layoutMode": "HORIZONTAL",
+                    "paddingLeft": 16,
+                    "paddingRight": 16,
+                    "paddingTop": 12,
+                    "paddingBottom": 12,
+                    "primaryAxisAlignItems": "SPACE_BETWEEN",
+                    "counterAxisAlignItems": "CENTER",
+                    "children": [
+                      {
+                        "id": "al:sb1",
+                        "name": "Left",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 516, "y": 1862, "width": 36, "height": 36 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.6, "b": 0.4, "a": 1 } }],
+                        "cornerRadius": 6
+                      },
+                      {
+                        "id": "al:sb2",
+                        "name": "Center",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 632, "y": 1862, "width": 36, "height": 36 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.6, "b": 0.4, "a": 1 } }],
+                        "cornerRadius": 6
+                      },
+                      {
+                        "id": "al:sb3",
+                        "name": "Right",
+                        "type": "RECTANGLE",
+                        "absoluteBoundingBox": { "x": 748, "y": 1862, "width": 36, "height": 36 },
+                        "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.6, "b": 0.4, "a": 1 } }],
+                        "cornerRadius": 6
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "id": "section:vectors",
+                "name": "10. Vector Paths & Booleans",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 2040, "width": 1160, "height": 200 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.98, "g": 0.95, "b": 0.98, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:vectors",
+                    "name": "Vectors",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 40, "y": 2050, "width": 300, "height": 24 },
+                    "characters": "10. Vector Paths & Booleans",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 18,
+                      "fontWeight": 700,
+                      "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.3, "a": 1 } }]
+                    }
+                  },
+                  {
+                    "id": "vector:triangle",
+                    "name": "Triangle Path",
+                    "type": "VECTOR",
+                    "absoluteBoundingBox": { "x": 40, "y": 2090, "width": 80, "height": 80 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } }],
+                    "vectorPaths": [{ "path": "M 40 0 L 80 80 L 0 80 Z", "windingRule": "NONZERO" }],
+                    "fillGeometry": [{ "path": "M 40 0 L 80 80 L 0 80 Z", "windingRule": "NONZERO" }]
+                  },
+                  {
+                    "id": "vector:heart",
+                    "name": "Heart Path",
+                    "type": "VECTOR",
+                    "absoluteBoundingBox": { "x": 140, "y": 2090, "width": 80, "height": 80 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.93, "g": 0.35, "b": 0.47, "a": 1 } }],
+                    "vectorPaths": [{ "path": "M 40 70 C 10 50 0 30 10 15 C 20 0 40 10 40 25 C 40 10 60 0 70 15 C 80 30 70 50 40 70 Z", "windingRule": "NONZERO" }],
+                    "fillGeometry": [{ "path": "M 40 70 C 10 50 0 30 10 15 C 20 0 40 10 40 25 C 40 10 60 0 70 15 C 80 30 70 50 40 70 Z", "windingRule": "NONZERO" }]
+                  },
+                  {
+                    "id": "bool:union",
+                    "name": "Boolean Union",
+                    "type": "BOOLEAN_OPERATION",
+                    "booleanOperation": "UNION",
+                    "absoluteBoundingBox": { "x": 260, "y": 2090, "width": 100, "height": 80 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.35, "g": 0.78, "b": 0.55, "a": 1 } }],
+                    "vectorPaths": [{ "path": "M 0 30 L 0 80 L 60 80 L 60 50 L 100 50 L 100 0 L 40 0 L 40 30 Z", "windingRule": "NONZERO" }],
+                    "fillGeometry": [{ "path": "M 0 30 L 0 80 L 60 80 L 60 50 L 100 50 L 100 0 L 40 0 L 40 30 Z", "windingRule": "NONZERO" }],
+                    "children": []
+                  },
+                  {
+                    "id": "bool:subtract",
+                    "name": "Boolean Subtract",
+                    "type": "BOOLEAN_OPERATION",
+                    "booleanOperation": "SUBTRACT",
+                    "absoluteBoundingBox": { "x": 380, "y": 2090, "width": 80, "height": 80 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.61, "g": 0.35, "b": 0.96, "a": 1 } }],
+                    "vectorPaths": [{ "path": "M 0 0 L 80 0 L 80 80 L 0 80 Z M 20 20 L 60 20 L 60 60 L 20 60 Z", "windingRule": "EVENODD" }],
+                    "fillGeometry": [{ "path": "M 0 0 L 80 0 L 80 80 L 0 80 Z M 20 20 L 60 20 L 60 60 L 20 60 Z", "windingRule": "EVENODD" }],
+                    "children": []
+                  }
+                ]
+              },
+              {
+                "id": "section:complete",
+                "name": "Complete!",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 2260, "width": 1160, "height": 100 },
+                "fills": [{
+                  "type": "GRADIENT_LINEAR",
+                  "gradientHandlePositions": [{ "x": 0, "y": 0.5 }, { "x": 1, "y": 0.5 }],
+                  "gradientStops": [
+                    { "position": 0, "color": { "r": 0.23, "g": 0.51, "b": 0.96, "a": 1 } },
+                    { "position": 0.5, "color": { "r": 0.61, "g": 0.35, "b": 0.96, "a": 1 } },
+                    { "position": 1, "color": { "r": 0.93, "g": 0.35, "b": 0.47, "a": 1 } }
+                  ]
+                }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "label:complete",
+                    "name": "All Features",
+                    "type": "TEXT",
+                    "absoluteBoundingBox": { "x": 480, "y": 2295, "width": 240, "height": 30 },
+                    "characters": "Kitchen Sink Complete!",
+                    "style": {
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": 700,
+                      "textAlignHorizontal": "CENTER",
+                      "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }]
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

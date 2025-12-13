@@ -616,3 +616,273 @@ describe("effectsToCSS", () => {
     expect(result.boxShadow).toBeUndefined();
   });
 });
+
+describe("Kitchen Sink Integration Test", () => {
+  let parser: FigmaParser;
+
+  beforeEach(() => {
+    parser = createParser();
+  });
+
+  it("should parse kitchen-sink.json with all feature categories", async () => {
+    const fs = require("fs");
+    const path = require("path");
+    const kitchenSinkPath = path.join(
+      __dirname,
+      "../test-fixtures/kitchen-sink.json"
+    );
+    const kitchenSinkJson = fs.readFileSync(kitchenSinkPath, "utf-8");
+
+    const result = await parser.parseJSON(kitchenSinkJson);
+
+    // Verify document structure
+    expect(result.name).toBe("Kitchen Sink - All Features Test");
+    expect(result.document.type).toBe("DOCUMENT");
+    expect(result.document.children).toHaveLength(1);
+
+    // Get the canvas
+    const canvas = result.document.children[0];
+    expect(canvas.type).toBe("CANVAS");
+
+    // Get the main frame containing all feature categories
+    const mainFrame = (canvas as any).children[0];
+    expect(mainFrame.name).toBe("Main Frame");
+    expect(mainFrame.type).toBe("FRAME");
+
+    // Verify all 10 feature categories exist
+    const featureFrames = (mainFrame as any).children;
+    expect(featureFrames.length).toBeGreaterThanOrEqual(10);
+
+    // Extract feature names
+    const featureNames = featureFrames.map((f: any) => f.name);
+
+    // Verify each feature category (numbered sections)
+    expect(featureNames).toContain("1. Basic Shapes");
+    expect(featureNames).toContain("2. Strokes");
+    expect(featureNames).toContain("3. Gradients");
+    expect(featureNames).toContain("4. Effects");
+    expect(featureNames).toContain("5. Blend Modes & Opacity");
+    expect(featureNames).toContain("6. Text Rendering");
+    expect(featureNames).toContain("7. Transforms");
+    expect(featureNames).toContain("8. Clipping & Masks");
+    expect(featureNames).toContain("9. Auto Layout");
+    expect(featureNames).toContain("10. Vector Paths & Booleans");
+  });
+
+  it("should verify basic shapes have correct properties", async () => {
+    const fs = require("fs");
+    const path = require("path");
+    const kitchenSinkPath = path.join(
+      __dirname,
+      "../test-fixtures/kitchen-sink.json"
+    );
+    const kitchenSinkJson = fs.readFileSync(kitchenSinkPath, "utf-8");
+
+    const result = await parser.parseJSON(kitchenSinkJson);
+    const canvas = result.document.children[0];
+    const mainFrame = (canvas as any).children[0];
+    const basicShapes = (mainFrame as any).children.find(
+      (c: any) => c.name === "1. Basic Shapes"
+    );
+
+    expect(basicShapes).toBeDefined();
+
+    // Find shapes by type
+    const shapes = (basicShapes as any).children;
+    const rectangle = shapes.find((s: any) => s.type === "RECTANGLE" && s.name === "Rectangle");
+    const ellipse = shapes.find((s: any) => s.type === "ELLIPSE");
+    const star = shapes.find((s: any) => s.type === "STAR");
+    const polygon = shapes.find((s: any) => s.type === "REGULAR_POLYGON");
+    const line = shapes.find((s: any) => s.type === "LINE");
+    const squircle = shapes.find((s: any) => s.name === "Squircle (iOS)");
+
+    expect(rectangle).toBeDefined();
+    expect(ellipse).toBeDefined();
+    expect(star).toBeDefined();
+    expect(polygon).toBeDefined();
+    expect(line).toBeDefined();
+    expect(squircle).toBeDefined();
+
+    // Verify squircle has corner smoothing
+    expect(squircle.cornerSmoothing).toBeGreaterThan(0);
+  });
+
+  it("should verify gradients have correct gradient types", async () => {
+    const fs = require("fs");
+    const path = require("path");
+    const kitchenSinkPath = path.join(
+      __dirname,
+      "../test-fixtures/kitchen-sink.json"
+    );
+    const kitchenSinkJson = fs.readFileSync(kitchenSinkPath, "utf-8");
+
+    const result = await parser.parseJSON(kitchenSinkJson);
+    const canvas = result.document.children[0];
+    const mainFrame = (canvas as any).children[0];
+    const gradients = (mainFrame as any).children.find(
+      (c: any) => c.name === "3. Gradients"
+    );
+
+    expect(gradients).toBeDefined();
+
+    // Get gradient rectangles
+    const gradientShapes = (gradients as any).children;
+
+    // Find each gradient type
+    const linearGradient = gradientShapes.find(
+      (s: any) => s.fills?.[0]?.type === "GRADIENT_LINEAR"
+    );
+    const radialGradient = gradientShapes.find(
+      (s: any) => s.fills?.[0]?.type === "GRADIENT_RADIAL"
+    );
+    const angularGradient = gradientShapes.find(
+      (s: any) => s.fills?.[0]?.type === "GRADIENT_ANGULAR"
+    );
+    const diamondGradient = gradientShapes.find(
+      (s: any) => s.fills?.[0]?.type === "GRADIENT_DIAMOND"
+    );
+
+    expect(linearGradient).toBeDefined();
+    expect(radialGradient).toBeDefined();
+    expect(angularGradient).toBeDefined();
+    expect(diamondGradient).toBeDefined();
+  });
+
+  it("should verify effects are properly configured", async () => {
+    const fs = require("fs");
+    const path = require("path");
+    const kitchenSinkPath = path.join(
+      __dirname,
+      "../test-fixtures/kitchen-sink.json"
+    );
+    const kitchenSinkJson = fs.readFileSync(kitchenSinkPath, "utf-8");
+
+    const result = await parser.parseJSON(kitchenSinkJson);
+    const canvas = result.document.children[0];
+    const mainFrame = (canvas as any).children[0];
+    const effects = (mainFrame as any).children.find(
+      (c: any) => c.name === "4. Effects"
+    );
+
+    expect(effects).toBeDefined();
+
+    // Get effect shapes
+    const effectShapes = (effects as any).children;
+
+    // Find each effect type
+    const dropShadow = effectShapes.find((s: any) =>
+      s.effects?.some((e: any) => e.type === "DROP_SHADOW")
+    );
+    const innerShadow = effectShapes.find((s: any) =>
+      s.effects?.some((e: any) => e.type === "INNER_SHADOW")
+    );
+    const blur = effectShapes.find((s: any) =>
+      s.effects?.some((e: any) => e.type === "LAYER_BLUR")
+    );
+
+    expect(dropShadow).toBeDefined();
+    expect(innerShadow).toBeDefined();
+    expect(blur).toBeDefined();
+  });
+
+  it("should verify text nodes have style properties", async () => {
+    const fs = require("fs");
+    const path = require("path");
+    const kitchenSinkPath = path.join(
+      __dirname,
+      "../test-fixtures/kitchen-sink.json"
+    );
+    const kitchenSinkJson = fs.readFileSync(kitchenSinkPath, "utf-8");
+
+    const result = await parser.parseJSON(kitchenSinkJson);
+    const canvas = result.document.children[0];
+    const mainFrame = (canvas as any).children[0];
+    const textRendering = (mainFrame as any).children.find(
+      (c: any) => c.name === "6. Text Rendering"
+    );
+
+    expect(textRendering).toBeDefined();
+
+    // Get text nodes
+    const textNodes = (textRendering as any).children.filter(
+      (c: any) => c.type === "TEXT"
+    );
+
+    expect(textNodes.length).toBeGreaterThanOrEqual(5);
+
+    // Verify text nodes have characters and style
+    for (const textNode of textNodes) {
+      expect(textNode.characters).toBeDefined();
+      expect(textNode.style).toBeDefined();
+    }
+  });
+
+  it("should verify transforms are applied correctly", async () => {
+    const fs = require("fs");
+    const path = require("path");
+    const kitchenSinkPath = path.join(
+      __dirname,
+      "../test-fixtures/kitchen-sink.json"
+    );
+    const kitchenSinkJson = fs.readFileSync(kitchenSinkPath, "utf-8");
+
+    const result = await parser.parseJSON(kitchenSinkJson);
+    const canvas = result.document.children[0];
+    const mainFrame = (canvas as any).children[0];
+    const transforms = (mainFrame as any).children.find(
+      (c: any) => c.name === "7. Transforms"
+    );
+
+    expect(transforms).toBeDefined();
+
+    // Get transform shapes (exclude the label text)
+    const transformShapes = (transforms as any).children.filter(
+      (c: any) => c.type !== "TEXT"
+    );
+
+    // Each shape should have a relativeTransform
+    for (const shape of transformShapes) {
+      expect(shape.relativeTransform).toBeDefined();
+      expect(shape.relativeTransform).toHaveLength(2);
+      expect(shape.relativeTransform[0]).toHaveLength(3);
+      expect(shape.relativeTransform[1]).toHaveLength(3);
+    }
+  });
+
+  it("should verify auto layout properties", async () => {
+    const fs = require("fs");
+    const path = require("path");
+    const kitchenSinkPath = path.join(
+      __dirname,
+      "../test-fixtures/kitchen-sink.json"
+    );
+    const kitchenSinkJson = fs.readFileSync(kitchenSinkPath, "utf-8");
+
+    const result = await parser.parseJSON(kitchenSinkJson);
+    const canvas = result.document.children[0];
+    const mainFrame = (canvas as any).children[0];
+    const autoLayout = (mainFrame as any).children.find(
+      (c: any) => c.name === "9. Auto Layout"
+    );
+
+    expect(autoLayout).toBeDefined();
+
+    // Get auto layout frames
+    const layoutFrames = (autoLayout as any).children.filter(
+      (c: any) => c.layoutMode
+    );
+
+    expect(layoutFrames.length).toBeGreaterThanOrEqual(2);
+
+    // Verify layout modes exist
+    const horizontal = layoutFrames.find(
+      (f: any) => f.layoutMode === "HORIZONTAL"
+    );
+    const vertical = layoutFrames.find(
+      (f: any) => f.layoutMode === "VERTICAL"
+    );
+
+    expect(horizontal).toBeDefined();
+    expect(vertical).toBeDefined();
+  });
+});
