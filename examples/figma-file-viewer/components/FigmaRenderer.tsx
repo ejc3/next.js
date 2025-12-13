@@ -967,9 +967,45 @@ function SVGVectorRenderer({
         viewBox={`0 0 ${width} ${height}`}
         style={{ display: "block" }}
       >
-        {node.fillGeometry?.map((path, index) => (
+        {/* Render fill paths from vectorPaths */}
+        {node.vectorPaths?.map((vp, index) => (
           <path
-            key={index}
+            key={`fill-${index}`}
+            d={vp.path}
+            fill={fillColor}
+            stroke="none"
+            fillRule={vp.windingRule === "EVENODD" || vp.windingRule === "ODD" ? "evenodd" : "nonzero"}
+          />
+        ))}
+        {/* Render stroke paths from strokePaths or fallback to vectorPaths with stroke */}
+        {node.strokePaths?.map((sp, index) => (
+          <path
+            key={`stroke-${index}`}
+            d={sp.path}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={node.strokeWeight || 1}
+            strokeLinecap={node.strokeCap === "ROUND" ? "round" : node.strokeCap === "SQUARE" ? "square" : "butt"}
+            strokeLinejoin={node.strokeJoin === "ROUND" ? "round" : node.strokeJoin === "BEVEL" ? "bevel" : "miter"}
+            fillRule={sp.windingRule === "EVENODD" || sp.windingRule === "ODD" ? "evenodd" : "nonzero"}
+          />
+        ))}
+        {/* If no strokePaths but there are strokes, add stroke to vectorPaths */}
+        {!node.strokePaths && node.strokes && node.strokes.length > 0 && node.vectorPaths?.map((vp, index) => (
+          <path
+            key={`path-stroke-${index}`}
+            d={vp.path}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={node.strokeWeight || 1}
+            strokeLinecap={node.strokeCap === "ROUND" ? "round" : node.strokeCap === "SQUARE" ? "square" : "butt"}
+            strokeLinejoin={node.strokeJoin === "ROUND" ? "round" : node.strokeJoin === "BEVEL" ? "bevel" : "miter"}
+          />
+        ))}
+        {/* Fallback to fillGeometry if no vectorPaths */}
+        {!node.vectorPaths && node.fillGeometry?.map((path, index) => (
+          <path
+            key={`legacy-${index}`}
             d={path.data}
             fill={fillColor}
             stroke={strokeColor}

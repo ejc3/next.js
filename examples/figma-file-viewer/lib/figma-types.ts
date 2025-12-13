@@ -444,6 +444,7 @@ export interface VectorNode
     BlendMixin {
   type: "VECTOR" | "LINE" | "REGULAR_POLYGON" | "STAR" | "ELLIPSE" | "RECTANGLE";
   vectorPaths?: VectorPath[];
+  strokePaths?: VectorPath[];
   handleMirroring?: "NONE" | "ANGLE" | "ANGLE_AND_LENGTH";
   arcData?: ArcData;
 }
