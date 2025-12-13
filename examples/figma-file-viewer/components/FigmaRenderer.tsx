@@ -141,12 +141,79 @@ interface FigmaRendererProps {
   onNodeClick?: (node: FigmaNode) => void;
   renderMode?: "absolute" | "flow";
   showOutlines?: boolean;
+  parentBounds?: Rectangle; // Parent's bounding box for relative positioning
 }
 
 /**
  * Main Figma Renderer Component
  * Renders Figma nodes as equivalent React components
  */
+/**
+ * Generate SVG path for a regular polygon
+ */
+function generatePolygonPath(width: number, height: number, sides: number = 6): string {
+  const cx = width / 2;
+  const cy = height / 2;
+  const radius = Math.min(width, height) / 2;
+  const angleOffset = -Math.PI / 2; // Start from top
+
+  const points: string[] = [];
+  for (let i = 0; i < sides; i++) {
+    const angle = angleOffset + (2 * Math.PI * i) / sides;
+    const x = cx + radius * Math.cos(angle);
+    const y = cy + radius * Math.sin(angle);
+    points.push(`${x.toFixed(3)},${y.toFixed(3)}`);
+  }
+
+  return `M ${points.join(" L ")} Z`;
+}
+
+/**
+ * Generate SVG path for a star
+ */
+function generateStarPath(
+  width: number,
+  height: number,
+  points: number = 5,
+  innerRadiusRatio: number = 0.382
+): string {
+  const cx = width / 2;
+  const cy = height / 2;
+  const outerRadius = Math.min(width, height) / 2;
+  const innerRadius = outerRadius * innerRadiusRatio;
+  const angleOffset = -Math.PI / 2; // Start from top
+
+  const pathPoints: string[] = [];
+  for (let i = 0; i < points * 2; i++) {
+    const angle = angleOffset + (Math.PI * i) / points;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const x = cx + radius * Math.cos(angle);
+    const y = cy + radius * Math.sin(angle);
+    pathPoints.push(`${x.toFixed(3)},${y.toFixed(3)}`);
+  }
+
+  return `M ${pathPoints.join(" L ")} Z`;
+}
+
+/**
+ * Get position relative to parent bounds
+ */
+function getRelativePosition(
+  absoluteBounds: Rectangle | undefined,
+  parentBounds: Rectangle | undefined,
+  scale: number
+): { left: number; top: number } | null {
+  if (!absoluteBounds) return null;
+
+  const parentX = parentBounds?.x ?? 0;
+  const parentY = parentBounds?.y ?? 0;
+
+  return {
+    left: (absoluteBounds.x - parentX) * scale,
+    top: (absoluteBounds.y - parentY) * scale,
+  };
+}
+
 export function FigmaRenderer({
   node,
   scale = 1,
@@ -154,6 +221,7 @@ export function FigmaRenderer({
   onNodeClick,
   renderMode = "absolute",
   showOutlines = false,
+  parentBounds,
 }: FigmaRendererProps) {
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
@@ -240,6 +308,7 @@ export function FigmaRenderer({
           wrapperStyle={getWrapperStyle()}
           renderMode={renderMode}
           showOutlines={showOutlines}
+          parentBounds={parentBounds}
         />
       );
 
@@ -258,6 +327,7 @@ export function FigmaRenderer({
           wrapperStyle={getWrapperStyle()}
           renderMode={renderMode}
           showOutlines={showOutlines}
+          parentBounds={parentBounds}
         />
       );
 
@@ -269,6 +339,7 @@ export function FigmaRenderer({
           onClick={handleClick}
           wrapperStyle={getWrapperStyle()}
           renderMode={renderMode}
+          parentBounds={parentBounds}
         />
       );
 
@@ -293,6 +364,7 @@ export function FigmaRenderer({
           onClick={handleClick}
           wrapperStyle={getWrapperStyle()}
           renderMode={renderMode}
+          parentBounds={parentBounds}
         />
       );
 
@@ -307,6 +379,7 @@ export function FigmaRenderer({
           wrapperStyle={getWrapperStyle()}
           renderMode={renderMode}
           showOutlines={showOutlines}
+          parentBounds={parentBounds}
         />
       );
 
@@ -408,6 +481,7 @@ function CanvasRenderer({
           onNodeClick={onNodeClick}
           renderMode={renderMode}
           showOutlines={showOutlines}
+          parentBounds={{ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }}
         />
       ))}
     </div>
@@ -426,6 +500,7 @@ function FrameRenderer({
   wrapperStyle,
   renderMode,
   showOutlines,
+  parentBounds,
 }: {
   node: FrameNode;
   scale: number;
@@ -435,6 +510,7 @@ function FrameRenderer({
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
   showOutlines: boolean;
+  parentBounds?: Rectangle;
 }) {
   const style = useMemo(() => {
     const s: CSSProperties = {
@@ -442,11 +518,14 @@ function FrameRenderer({
       boxSizing: "border-box",
     };
 
-    // Position and size
+    // Position and size - use relative positioning when we have parent bounds
     if (node.absoluteBoundingBox && renderMode === "absolute") {
       s.position = "absolute";
-      s.left = node.absoluteBoundingBox.x * scale;
-      s.top = node.absoluteBoundingBox.y * scale;
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
       s.width = node.absoluteBoundingBox.width * scale;
       s.height = node.absoluteBoundingBox.height * scale;
     } else if (node.size) {
@@ -548,7 +627,7 @@ function FrameRenderer({
     applyIsolation(s, node);
 
     return s;
-  }, [node, scale, wrapperStyle, renderMode]);
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
 
   return (
     <div
@@ -567,6 +646,7 @@ function FrameRenderer({
           onNodeClick={onNodeClick}
           renderMode={node.layoutMode && node.layoutMode !== "NONE" ? "flow" : renderMode}
           showOutlines={showOutlines}
+          parentBounds={node.absoluteBoundingBox}
         />
       ))}
     </div>
@@ -585,6 +665,7 @@ function GroupRenderer({
   wrapperStyle,
   renderMode,
   showOutlines,
+  parentBounds,
 }: {
   node: GroupNode;
   scale: number;
@@ -594,6 +675,7 @@ function GroupRenderer({
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
   showOutlines: boolean;
+  parentBounds?: Rectangle;
 }) {
   const style = useMemo(() => {
     const s: CSSProperties = {
@@ -602,8 +684,11 @@ function GroupRenderer({
 
     if (node.absoluteBoundingBox && renderMode === "absolute") {
       s.position = "absolute";
-      s.left = node.absoluteBoundingBox.x * scale;
-      s.top = node.absoluteBoundingBox.y * scale;
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
       s.width = node.absoluteBoundingBox.width * scale;
       s.height = node.absoluteBoundingBox.height * scale;
     }
@@ -629,7 +714,7 @@ function GroupRenderer({
     applyIsolation(s, node);
 
     return s;
-  }, [node, scale, wrapperStyle, renderMode]);
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
 
   return (
     <div
@@ -648,6 +733,7 @@ function GroupRenderer({
           onNodeClick={onNodeClick}
           renderMode={renderMode}
           showOutlines={showOutlines}
+          parentBounds={node.absoluteBoundingBox}
         />
       ))}
     </div>
@@ -663,12 +749,14 @@ function TextRenderer({
   onClick,
   wrapperStyle,
   renderMode,
+  parentBounds,
 }: {
   node: TextNode;
   scale: number;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
+  parentBounds?: Rectangle;
 }) {
   const style = useMemo(() => {
     const s: CSSProperties = {
@@ -679,8 +767,11 @@ function TextRenderer({
 
     if (node.absoluteBoundingBox && renderMode === "absolute") {
       s.position = "absolute";
-      s.left = node.absoluteBoundingBox.x * scale;
-      s.top = node.absoluteBoundingBox.y * scale;
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
       s.width = node.absoluteBoundingBox.width * scale;
     }
 
@@ -804,7 +895,7 @@ function TextRenderer({
     applyBlendMode(s, node);
 
     return s;
-  }, [node, scale, wrapperStyle, renderMode]);
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
 
   return (
     <span
@@ -828,12 +919,14 @@ function VectorRenderer({
   onClick,
   wrapperStyle,
   renderMode,
+  parentBounds,
 }: {
   node: VectorNode;
   scale: number;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
+  parentBounds?: Rectangle;
 }) {
   const style = useMemo(() => {
     const s: CSSProperties = {
@@ -843,8 +936,11 @@ function VectorRenderer({
 
     if (node.absoluteBoundingBox && renderMode === "absolute") {
       s.position = "absolute";
-      s.left = node.absoluteBoundingBox.x * scale;
-      s.top = node.absoluteBoundingBox.y * scale;
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
       s.width = node.absoluteBoundingBox.width * scale;
       s.height = node.absoluteBoundingBox.height * scale;
     } else if (node.size) {
@@ -919,7 +1015,7 @@ function VectorRenderer({
     applyBlendMode(s, node);
 
     return s;
-  }, [node, scale, wrapperStyle, renderMode]);
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
 
   // For complex vector paths, render as SVG
   if (node.fillGeometry && node.fillGeometry.length > 0 && node.type === "VECTOR") {
@@ -930,7 +1026,62 @@ function VectorRenderer({
         onClick={onClick}
         wrapperStyle={wrapperStyle}
         renderMode={renderMode}
+        parentBounds={parentBounds}
       />
+    );
+  }
+
+  // Render stars and polygons as SVG
+  if (node.type === "STAR" || node.type === "REGULAR_POLYGON" || node.type === "POLYGON") {
+    const width = node.absoluteBoundingBox?.width || node.size?.x || 100;
+    const height = node.absoluteBoundingBox?.height || node.size?.y || 100;
+
+    // Generate the path based on shape type
+    let svgPath: string;
+    if (node.type === "STAR") {
+      // Use starInnerScale if available, default to golden ratio
+      const innerRatio = (node as unknown as { starInnerScale?: number }).starInnerScale ?? 0.382;
+      const pointCount = (node as unknown as { pointCount?: number }).pointCount ?? 5;
+      svgPath = generateStarPath(width, height, pointCount, innerRatio);
+    } else {
+      // Regular polygon
+      const sides = (node as unknown as { pointCount?: number }).pointCount ?? 6;
+      svgPath = generatePolygonPath(width, height, sides);
+    }
+
+    const fillColor = node.fills && node.fills.length > 0
+      ? paintToCSS(node.fills[0]) || "none"
+      : "none";
+    const strokeColor = node.strokes && node.strokes.length > 0
+      ? paintToCSS(node.strokes[0]) || "none"
+      : "none";
+
+    return (
+      <div
+        className={`figma-vector figma-${node.type.toLowerCase()}`}
+        onClick={onClick}
+        style={{
+          ...style,
+          backgroundColor: "transparent",
+          background: "none",
+        }}
+        data-figma-id={node.id}
+        data-figma-name={node.name}
+      >
+        <svg
+          width={width * scale}
+          height={height * scale}
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ display: "block" }}
+        >
+          <path
+            d={svgPath}
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={node.strokeWeight || 0}
+          />
+        </svg>
+      </div>
     );
   }
 
@@ -954,12 +1105,14 @@ function SVGVectorRenderer({
   onClick,
   wrapperStyle,
   renderMode,
+  parentBounds,
 }: {
   node: VectorNode;
   scale: number;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
+  parentBounds?: Rectangle;
 }) {
   const containerStyle = useMemo(() => {
     const s: CSSProperties = {
@@ -968,8 +1121,11 @@ function SVGVectorRenderer({
 
     if (node.absoluteBoundingBox && renderMode === "absolute") {
       s.position = "absolute";
-      s.left = node.absoluteBoundingBox.x * scale;
-      s.top = node.absoluteBoundingBox.y * scale;
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
       s.width = node.absoluteBoundingBox.width * scale;
       s.height = node.absoluteBoundingBox.height * scale;
     }
@@ -988,7 +1144,7 @@ function SVGVectorRenderer({
     applyBlendMode(s, node);
 
     return s;
-  }, [node, scale, wrapperStyle, renderMode]);
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
 
   const fillColor = useMemo(() => {
     if (node.fills && node.fills.length > 0) {
@@ -1025,7 +1181,7 @@ function SVGVectorRenderer({
         {node.vectorPaths?.map((vp, index) => (
           <path
             key={`fill-${index}`}
-            d={vp.path}
+            d={vp.path || vp.data || ""}
             fill={fillColor}
             stroke="none"
             fillRule={vp.windingRule === "EVENODD" || vp.windingRule === "ODD" ? "evenodd" : "nonzero"}
@@ -1035,7 +1191,7 @@ function SVGVectorRenderer({
         {node.strokePaths?.map((sp, index) => (
           <path
             key={`stroke-${index}`}
-            d={sp.path}
+            d={sp.path || sp.data || ""}
             fill="none"
             stroke={strokeColor}
             strokeWidth={node.strokeWeight || 1}
@@ -1048,7 +1204,7 @@ function SVGVectorRenderer({
         {!node.strokePaths && node.strokes && node.strokes.length > 0 && node.vectorPaths?.map((vp, index) => (
           <path
             key={`path-stroke-${index}`}
-            d={vp.path}
+            d={vp.path || vp.data || ""}
             fill="none"
             stroke={strokeColor}
             strokeWidth={node.strokeWeight || 1}
@@ -1057,14 +1213,14 @@ function SVGVectorRenderer({
           />
         ))}
         {/* Fallback to fillGeometry if no vectorPaths */}
-        {!node.vectorPaths && node.fillGeometry?.map((path, index) => (
+        {!node.vectorPaths && node.fillGeometry?.map((geom, index) => (
           <path
             key={`legacy-${index}`}
-            d={path.data}
+            d={geom.path || geom.data || ""}
             fill={fillColor}
             stroke={strokeColor}
             strokeWidth={node.strokeWeight || 0}
-            fillRule={path.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
+            fillRule={geom.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
           />
         ))}
       </svg>
@@ -1084,6 +1240,7 @@ function BooleanRenderer({
   wrapperStyle,
   renderMode,
   showOutlines,
+  parentBounds,
 }: {
   node: BooleanOperationNode;
   scale: number;
@@ -1093,6 +1250,7 @@ function BooleanRenderer({
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
   showOutlines: boolean;
+  parentBounds?: Rectangle;
 }) {
   // Boolean operations are complex - we'll render the result as an SVG if possible
   const style = useMemo(() => {
@@ -1102,8 +1260,11 @@ function BooleanRenderer({
 
     if (node.absoluteBoundingBox && renderMode === "absolute") {
       s.position = "absolute";
-      s.left = node.absoluteBoundingBox.x * scale;
-      s.top = node.absoluteBoundingBox.y * scale;
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
       s.width = node.absoluteBoundingBox.width * scale;
       s.height = node.absoluteBoundingBox.height * scale;
     }
@@ -1141,7 +1302,7 @@ function BooleanRenderer({
     applyBlendMode(s, node);
 
     return s;
-  }, [node, scale, wrapperStyle, renderMode]);
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
 
   // If we have fill geometry, render as SVG
   if (node.fillGeometry && node.fillGeometry.length > 0) {
@@ -1170,14 +1331,14 @@ function BooleanRenderer({
           viewBox={`0 0 ${width} ${height}`}
           style={{ display: "block" }}
         >
-          {node.fillGeometry.map((path, index) => (
+          {node.fillGeometry.map((geom, index) => (
             <path
               key={index}
-              d={path.data}
+              d={geom.path || geom.data || ""}
               fill={fillColor}
               stroke={strokeColor}
               strokeWidth={node.strokeWeight || 0}
-              fillRule={path.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
+              fillRule={geom.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
             />
           ))}
         </svg>
@@ -1203,6 +1364,7 @@ function BooleanRenderer({
           onNodeClick={onNodeClick}
           renderMode={renderMode}
           showOutlines={showOutlines}
+          parentBounds={node.absoluteBoundingBox}
         />
       ))}
     </div>

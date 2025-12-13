@@ -13,7 +13,12 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed",
-    "test:all": "npm run test && npm run test:e2e"
+    "test:all": "npm run test && npm run test:e2e",
+    "test:features": "playwright test --grep 'Feature Verification'",
+    "test:visual": "playwright test --grep 'Visual Regression'",
+    "analyze": "node scripts/analyze-rendering.mjs",
+    "pixel-diff": "node scripts/pixel-diff.mjs",
+    "verify-all": "npm run test:features && npm run analyze"
   },
   "dependencies": {
     "fig-kiwi": "^0.0.1",
@@ -31,6 +36,7 @@
     "@testing-library/react": "^14.1.2",
     "@types/jest": "^29.5.11",
     "@types/node": "20.10.8",
+    "@types/pako": "^2.0.4",
     "@types/react": "18.2.47",
     "@types/react-dom": "18.2.18",
     "jest": "^29.7.0",

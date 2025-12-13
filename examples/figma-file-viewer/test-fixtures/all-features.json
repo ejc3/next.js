@@ -1,0 +1,551 @@
+{
+  "name": "All Features Test",
+  "document": {
+    "id": "0:0",
+    "name": "Document",
+    "type": "DOCUMENT",
+    "children": [
+      {
+        "id": "0:1",
+        "name": "Test Canvas",
+        "type": "CANVAS",
+        "backgroundColor": { "r": 0.96, "g": 0.96, "b": 0.96, "a": 1 },
+        "children": [
+          {
+            "id": "test:1",
+            "name": "All Features Frame",
+            "type": "FRAME",
+            "absoluteBoundingBox": { "x": 0, "y": 0, "width": 1200, "height": 900 },
+            "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+            "clipsContent": false,
+            "children": [
+              {
+                "id": "shape:1",
+                "name": "Rounded Rect",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 20, "y": 20, "width": 100, "height": 70 },
+                "cornerRadius": 12,
+                "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.5, "b": 0.9, "a": 1 } }]
+              },
+              {
+                "id": "shape:2",
+                "name": "Per-corner Radius",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 140, "y": 20, "width": 100, "height": 70 },
+                "rectangleCornerRadii": [0, 24, 0, 24],
+                "fills": [{ "type": "SOLID", "color": { "r": 0.9, "g": 0.3, "b": 0.5, "a": 1 } }]
+              },
+              {
+                "id": "shape:3",
+                "name": "Ellipse",
+                "type": "ELLIPSE",
+                "absoluteBoundingBox": { "x": 260, "y": 20, "width": 100, "height": 70 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.3, "g": 0.8, "b": 0.5, "a": 1 } }]
+              },
+              {
+                "id": "shape:4",
+                "name": "Squircle",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 380, "y": 20, "width": 100, "height": 70 },
+                "cornerRadius": 20,
+                "cornerSmoothing": 0.6,
+                "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 0.4, "b": 0.6, "a": 1 } }]
+              },
+              {
+                "id": "shape:5",
+                "name": "Full Squircle",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 500, "y": 20, "width": 100, "height": 70 },
+                "cornerRadius": 24,
+                "cornerSmoothing": 1.0,
+                "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.7, "b": 0.95, "a": 1 } }]
+              },
+              {
+                "id": "grad:1",
+                "name": "Linear Gradient",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 20, "y": 110, "width": 120, "height": 80 },
+                "cornerRadius": 8,
+                "fills": [{
+                  "type": "GRADIENT_LINEAR",
+                  "gradientHandlePositions": [
+                    { "x": 0, "y": 0.5 },
+                    { "x": 1, "y": 0.5 }
+                  ],
+                  "gradientStops": [
+                    { "position": 0, "color": { "r": 1, "g": 0.2, "b": 0.2, "a": 1 } },
+                    { "position": 0.5, "color": { "r": 1, "g": 0.8, "b": 0.2, "a": 1 } },
+                    { "position": 1, "color": { "r": 0.2, "g": 0.9, "b": 0.3, "a": 1 } }
+                  ]
+                }]
+              },
+              {
+                "id": "grad:2",
+                "name": "Radial Gradient",
+                "type": "ELLIPSE",
+                "absoluteBoundingBox": { "x": 160, "y": 110, "width": 100, "height": 80 },
+                "fills": [{
+                  "type": "GRADIENT_RADIAL",
+                  "gradientHandlePositions": [
+                    { "x": 0.5, "y": 0.5 },
+                    { "x": 1, "y": 0.5 },
+                    { "x": 0.5, "y": 1 }
+                  ],
+                  "gradientStops": [
+                    { "position": 0, "color": { "r": 1, "g": 1, "b": 1, "a": 1 } },
+                    { "position": 1, "color": { "r": 0.2, "g": 0.3, "b": 0.8, "a": 1 } }
+                  ]
+                }]
+              },
+              {
+                "id": "grad:3",
+                "name": "Angular Gradient",
+                "type": "ELLIPSE",
+                "absoluteBoundingBox": { "x": 280, "y": 110, "width": 80, "height": 80 },
+                "fills": [{
+                  "type": "GRADIENT_ANGULAR",
+                  "gradientHandlePositions": [
+                    { "x": 0.5, "y": 0.5 },
+                    { "x": 1, "y": 0.5 },
+                    { "x": 0.5, "y": 0 }
+                  ],
+                  "gradientStops": [
+                    { "position": 0, "color": { "r": 1, "g": 0, "b": 0, "a": 1 } },
+                    { "position": 0.33, "color": { "r": 0, "g": 1, "b": 0, "a": 1 } },
+                    { "position": 0.66, "color": { "r": 0, "g": 0, "b": 1, "a": 1 } },
+                    { "position": 1, "color": { "r": 1, "g": 0, "b": 0, "a": 1 } }
+                  ]
+                }]
+              },
+              {
+                "id": "grad:4",
+                "name": "Diamond Gradient",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 380, "y": 110, "width": 80, "height": 80 },
+                "fills": [{
+                  "type": "GRADIENT_DIAMOND",
+                  "gradientHandlePositions": [
+                    { "x": 0.5, "y": 0.5 },
+                    { "x": 1, "y": 0.5 },
+                    { "x": 0.5, "y": 1 }
+                  ],
+                  "gradientStops": [
+                    { "position": 0, "color": { "r": 1, "g": 0.9, "b": 0.3, "a": 1 } },
+                    { "position": 1, "color": { "r": 0.8, "g": 0.2, "b": 0.5, "a": 1 } }
+                  ]
+                }]
+              },
+              {
+                "id": "grad:5",
+                "name": "Diagonal Gradient",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 480, "y": 110, "width": 120, "height": 80 },
+                "cornerRadius": 8,
+                "fills": [{
+                  "type": "GRADIENT_LINEAR",
+                  "gradientHandlePositions": [
+                    { "x": 0, "y": 0 },
+                    { "x": 1, "y": 1 }
+                  ],
+                  "gradientStops": [
+                    { "position": 0, "color": { "r": 0.3, "g": 0.8, "b": 1, "a": 1 } },
+                    { "position": 1, "color": { "r": 1, "g": 0.5, "b": 0.8, "a": 1 } }
+                  ]
+                }]
+              },
+              {
+                "id": "effect:1",
+                "name": "Drop Shadow",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 40, "y": 220, "width": 100, "height": 70 },
+                "cornerRadius": 10,
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+                "effects": [{
+                  "type": "DROP_SHADOW",
+                  "visible": true,
+                  "radius": 12,
+                  "offset": { "x": 4, "y": 6 },
+                  "color": { "r": 0, "g": 0, "b": 0, "a": 0.25 }
+                }]
+              },
+              {
+                "id": "effect:2",
+                "name": "Inner Shadow",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 180, "y": 220, "width": 100, "height": 70 },
+                "cornerRadius": 10,
+                "fills": [{ "type": "SOLID", "color": { "r": 0.92, "g": 0.92, "b": 0.96, "a": 1 } }],
+                "effects": [{
+                  "type": "INNER_SHADOW",
+                  "visible": true,
+                  "radius": 8,
+                  "offset": { "x": 3, "y": 3 },
+                  "color": { "r": 0, "g": 0, "b": 0, "a": 0.3 }
+                }]
+              },
+              {
+                "id": "effect:3",
+                "name": "Layer Blur",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 320, "y": 220, "width": 100, "height": 70 },
+                "cornerRadius": 10,
+                "fills": [{
+                  "type": "GRADIENT_LINEAR",
+                  "gradientHandlePositions": [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+                  "gradientStops": [
+                    { "position": 0, "color": { "r": 1, "g": 0.3, "b": 0.3, "a": 1 } },
+                    { "position": 1, "color": { "r": 0.3, "g": 0.3, "b": 1, "a": 1 } }
+                  ]
+                }],
+                "effects": [{
+                  "type": "LAYER_BLUR",
+                  "visible": true,
+                  "radius": 4
+                }]
+              },
+              {
+                "id": "effect:4",
+                "name": "Multi Shadow",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 460, "y": 220, "width": 100, "height": 70 },
+                "cornerRadius": 12,
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 1, "b": 1, "a": 1 } }],
+                "effects": [
+                  {
+                    "type": "DROP_SHADOW",
+                    "visible": true,
+                    "radius": 20,
+                    "offset": { "x": 0, "y": 12 },
+                    "color": { "r": 0, "g": 0, "b": 0, "a": 0.12 }
+                  },
+                  {
+                    "type": "DROP_SHADOW",
+                    "visible": true,
+                    "radius": 6,
+                    "offset": { "x": 0, "y": 3 },
+                    "color": { "r": 0, "g": 0, "b": 0, "a": 0.08 }
+                  }
+                ]
+              },
+              {
+                "id": "stroke:1",
+                "name": "Center Stroke",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 20, "y": 320, "width": 80, "height": 60 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 0.95, "b": 0.95, "a": 1 } }],
+                "strokes": [{ "type": "SOLID", "color": { "r": 0, "g": 0, "b": 0, "a": 1 } }],
+                "strokeWeight": 3,
+                "strokeAlign": "CENTER"
+              },
+              {
+                "id": "stroke:2",
+                "name": "Inside Stroke",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 120, "y": 320, "width": 80, "height": 60 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 0.95, "b": 0.95, "a": 1 } }],
+                "strokes": [{ "type": "SOLID", "color": { "r": 0.8, "g": 0.2, "b": 0.2, "a": 1 } }],
+                "strokeWeight": 4,
+                "strokeAlign": "INSIDE"
+              },
+              {
+                "id": "stroke:3",
+                "name": "Outside Stroke",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 220, "y": 320, "width": 80, "height": 60 },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 0.95, "b": 0.95, "a": 1 } }],
+                "strokes": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 0.8, "a": 1 } }],
+                "strokeWeight": 4,
+                "strokeAlign": "OUTSIDE"
+              },
+              {
+                "id": "stroke:4",
+                "name": "Dashed Stroke",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 320, "y": 320, "width": 80, "height": 60 },
+                "fills": [],
+                "strokes": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.6, "b": 0.3, "a": 1 } }],
+                "strokeWeight": 3,
+                "dashPattern": [10, 5]
+              },
+              {
+                "id": "stroke:5",
+                "name": "Round Stroke",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 420, "y": 320, "width": 80, "height": 60 },
+                "cornerRadius": 8,
+                "fills": [{ "type": "SOLID", "color": { "r": 0.98, "g": 0.95, "b": 0.9, "a": 1 } }],
+                "strokes": [{ "type": "SOLID", "color": { "r": 0.9, "g": 0.5, "b": 0.2, "a": 1 } }],
+                "strokeWeight": 5,
+                "strokeCap": "ROUND",
+                "strokeJoin": "ROUND"
+              },
+              {
+                "id": "text:1",
+                "name": "Basic Text",
+                "type": "TEXT",
+                "absoluteBoundingBox": { "x": 20, "y": 410, "width": 200, "height": 30 },
+                "characters": "Hello World",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 24,
+                  "textAlignHorizontal": "LEFT"
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+              },
+              {
+                "id": "text:2",
+                "name": "Bold Text",
+                "type": "TEXT",
+                "absoluteBoundingBox": { "x": 20, "y": 450, "width": 200, "height": 30 },
+                "characters": "Bold Text",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 700,
+                  "fontSize": 24
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.1, "g": 0.1, "b": 0.1, "a": 1 } }]
+              },
+              {
+                "id": "text:3",
+                "name": "Underline",
+                "type": "TEXT",
+                "absoluteBoundingBox": { "x": 240, "y": 410, "width": 150, "height": 30 },
+                "characters": "Underlined",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 24,
+                  "textDecoration": "UNDERLINE"
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.4, "b": 0.8, "a": 1 } }]
+              },
+              {
+                "id": "text:4",
+                "name": "Strikethrough",
+                "type": "TEXT",
+                "absoluteBoundingBox": { "x": 240, "y": 450, "width": 180, "height": 30 },
+                "characters": "Strikethrough",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 400,
+                  "fontSize": 24,
+                  "textDecoration": "STRIKETHROUGH"
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.8, "g": 0.3, "b": 0.3, "a": 1 } }]
+              },
+              {
+                "id": "text:5",
+                "name": "Uppercase",
+                "type": "TEXT",
+                "absoluteBoundingBox": { "x": 440, "y": 410, "width": 180, "height": 30 },
+                "characters": "uppercase text",
+                "style": {
+                  "fontFamily": "Inter",
+                  "fontWeight": 600,
+                  "fontSize": 20,
+                  "textCase": "UPPER",
+                  "letterSpacing": 2
+                },
+                "fills": [{ "type": "SOLID", "color": { "r": 0.4, "g": 0.4, "b": 0.4, "a": 1 } }]
+              },
+              {
+                "id": "opacity:1",
+                "name": "50% Opacity",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 20, "y": 510, "width": 100, "height": 70 },
+                "cornerRadius": 8,
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0.2, "b": 0.2, "a": 1 } }],
+                "opacity": 0.5
+              },
+              {
+                "id": "opacity:2",
+                "name": "Fill Opacity",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 140, "y": 510, "width": 100, "height": 70 },
+                "cornerRadius": 8,
+                "fills": [{ "type": "SOLID", "color": { "r": 0.2, "g": 0.2, "b": 1, "a": 0.5 } }]
+              },
+              {
+                "id": "opacity:3",
+                "name": "Group Opacity",
+                "type": "GROUP",
+                "absoluteBoundingBox": { "x": 260, "y": 510, "width": 120, "height": 80 },
+                "opacity": 0.6,
+                "children": [
+                  {
+                    "id": "opacity:3:1",
+                    "name": "Red",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 260, "y": 510, "width": 80, "height": 60 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0, "b": 0, "a": 1 } }]
+                  },
+                  {
+                    "id": "opacity:3:2",
+                    "name": "Blue",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 300, "y": 530, "width": 80, "height": 60 },
+                    "fills": [{ "type": "SOLID", "color": { "r": 0, "g": 0, "b": 1, "a": 1 } }]
+                  }
+                ]
+              },
+              {
+                "id": "blend:1",
+                "name": "Blend Base",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 400, "y": 510, "width": 150, "height": 90 },
+                "fills": [{
+                  "type": "GRADIENT_LINEAR",
+                  "gradientHandlePositions": [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+                  "gradientStops": [
+                    { "position": 0, "color": { "r": 1, "g": 0.5, "b": 0.2, "a": 1 } },
+                    { "position": 1, "color": { "r": 0.2, "g": 0.5, "b": 1, "a": 1 } }
+                  ]
+                }]
+              },
+              {
+                "id": "blend:2",
+                "name": "Multiply Circle",
+                "type": "ELLIPSE",
+                "absoluteBoundingBox": { "x": 440, "y": 530, "width": 70, "height": 70 },
+                "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0, "b": 0.5, "a": 1 } }],
+                "blendMode": "MULTIPLY"
+              },
+              {
+                "id": "transform:1",
+                "name": "Rotated",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 80, "y": 650, "width": 60, "height": 60 },
+                "relativeTransform": [[0.707, -0.707, 0], [0.707, 0.707, 0]],
+                "fills": [{ "type": "SOLID", "color": { "r": 0.3, "g": 0.6, "b": 0.9, "a": 1 } }]
+              },
+              {
+                "id": "transform:2",
+                "name": "Skewed",
+                "type": "RECTANGLE",
+                "absoluteBoundingBox": { "x": 200, "y": 650, "width": 80, "height": 60 },
+                "relativeTransform": [[1, 0.3, 0], [0, 1, 0]],
+                "fills": [{ "type": "SOLID", "color": { "r": 0.9, "g": 0.5, "b": 0.3, "a": 1 } }]
+              },
+              {
+                "id": "clip:1",
+                "name": "Clipped Frame",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 350, "y": 630, "width": 120, "height": 90 },
+                "cornerRadius": 20,
+                "clipsContent": true,
+                "fills": [{ "type": "SOLID", "color": { "r": 0.95, "g": 0.95, "b": 0.95, "a": 1 } }],
+                "children": [
+                  {
+                    "id": "clip:1:1",
+                    "name": "Overflow",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 330, "y": 610, "width": 160, "height": 130 },
+                    "fills": [{
+                      "type": "GRADIENT_LINEAR",
+                      "gradientHandlePositions": [{ "x": 0, "y": 0 }, { "x": 1, "y": 1 }],
+                      "gradientStops": [
+                        { "position": 0, "color": { "r": 1, "g": 0, "b": 0.5, "a": 1 } },
+                        { "position": 1, "color": { "r": 0.5, "g": 0, "b": 1, "a": 1 } }
+                      ]
+                    }]
+                  }
+                ]
+              },
+              {
+                "id": "layout:1",
+                "name": "H-Stack",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 20, "y": 760, "width": 220, "height": 60 },
+                "layoutMode": "HORIZONTAL",
+                "itemSpacing": 10,
+                "paddingLeft": 12,
+                "paddingRight": 12,
+                "paddingTop": 10,
+                "paddingBottom": 10,
+                "primaryAxisAlignItems": "MIN",
+                "counterAxisAlignItems": "CENTER",
+                "fills": [{ "type": "SOLID", "color": { "r": 0.98, "g": 0.98, "b": 1, "a": 1 } }],
+                "cornerRadius": 10,
+                "effects": [{
+                  "type": "DROP_SHADOW",
+                  "visible": true,
+                  "radius": 6,
+                  "offset": { "x": 0, "y": 2 },
+                  "color": { "r": 0, "g": 0, "b": 0, "a": 0.08 }
+                }],
+                "children": [
+                  {
+                    "id": "layout:1:1",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 32, "y": 770, "width": 40, "height": 40 },
+                    "cornerRadius": 6,
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.3, "g": 0.6, "b": 0.9, "a": 1 } }]
+                  },
+                  {
+                    "id": "layout:1:2",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 82, "y": 770, "width": 40, "height": 40 },
+                    "cornerRadius": 6,
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.9, "g": 0.4, "b": 0.3, "a": 1 } }]
+                  },
+                  {
+                    "id": "layout:1:3",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 132, "y": 770, "width": 40, "height": 40 },
+                    "cornerRadius": 6,
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.4, "g": 0.8, "b": 0.4, "a": 1 } }]
+                  },
+                  {
+                    "id": "layout:1:4",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 182, "y": 770, "width": 40, "height": 40 },
+                    "cornerRadius": 6,
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.9, "g": 0.7, "b": 0.2, "a": 1 } }]
+                  }
+                ]
+              },
+              {
+                "id": "layout:2",
+                "name": "V-Stack",
+                "type": "FRAME",
+                "absoluteBoundingBox": { "x": 260, "y": 760, "width": 80, "height": 120 },
+                "layoutMode": "VERTICAL",
+                "itemSpacing": 8,
+                "paddingLeft": 10,
+                "paddingRight": 10,
+                "paddingTop": 10,
+                "paddingBottom": 10,
+                "fills": [{ "type": "SOLID", "color": { "r": 0.25, "g": 0.25, "b": 0.35, "a": 1 } }],
+                "cornerRadius": 12,
+                "children": [
+                  {
+                    "id": "layout:2:1",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 270, "y": 770, "width": 60, "height": 28 },
+                    "cornerRadius": 4,
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0.4, "b": 0.4, "a": 1 } }]
+                  },
+                  {
+                    "id": "layout:2:2",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 270, "y": 806, "width": 60, "height": 28 },
+                    "cornerRadius": 4,
+                    "fills": [{ "type": "SOLID", "color": { "r": 0.4, "g": 0.8, "b": 1, "a": 1 } }]
+                  },
+                  {
+                    "id": "layout:2:3",
+                    "type": "RECTANGLE",
+                    "absoluteBoundingBox": { "x": 270, "y": 842, "width": 60, "height": 28 },
+                    "cornerRadius": 4,
+                    "fills": [{ "type": "SOLID", "color": { "r": 1, "g": 0.9, "b": 0.3, "a": 1 } }]
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

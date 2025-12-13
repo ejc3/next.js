@@ -207,8 +207,9 @@ export interface PathSegment {
 }
 
 export interface VectorPath {
-  windingRule: "EVENODD" | "NONZERO";
-  data: string;
+  windingRule: "EVENODD" | "NONZERO" | "ODD";
+  data?: string;
+  path?: string; // Alternative name used by parser
 }
 
 export interface VectorVertex {
@@ -412,7 +413,7 @@ export interface FrameNode
     BlendMixin,
     ContainerMixin,
     LayoutMixin {
-  type: "FRAME" | "COMPONENT" | "COMPONENT_SET" | "INSTANCE";
+  type: "FRAME" | "COMPONENT" | "COMPONENT_SET" | "INSTANCE" | "SYMBOL" | "SECTION" | "SLIDE" | "SLIDE_ROW" | "SLIDE_GRID" | "TRANSFORM_GROUP" | "WIDGET" | "EMBED" | "MEDIA" | "LINK_UNFURL";
   componentId?: string;
   isExposedInstance?: boolean;
   exposedInstances?: string[];
@@ -442,7 +443,7 @@ export interface GroupNode
   extends SceneNode,
     BlendMixin,
     ContainerMixin {
-  type: "GROUP";
+  type: "GROUP" | "STICKY" | "SHAPE_WITH_TEXT" | "CONNECTOR" | "CODE_BLOCK";
 }
 
 // Section Node
@@ -460,7 +461,7 @@ export interface VectorNode
     GeometryMixin,
     CornerMixin,
     BlendMixin {
-  type: "VECTOR" | "LINE" | "REGULAR_POLYGON" | "STAR" | "ELLIPSE" | "RECTANGLE";
+  type: "VECTOR" | "LINE" | "REGULAR_POLYGON" | "POLYGON" | "STAR" | "ELLIPSE" | "RECTANGLE" | "ROUNDED_RECTANGLE" | "TEXT_PATH" | "SLICE" | "STAMP" | "HIGHLIGHT" | "WASHI_TAPE" | "INTERACTIVE_SLIDE_ELEMENT";
   vectorPaths?: VectorPath[];
   strokePaths?: VectorPath[];
   handleMirroring?: "NONE" | "ANGLE" | "ANGLE_AND_LENGTH";
