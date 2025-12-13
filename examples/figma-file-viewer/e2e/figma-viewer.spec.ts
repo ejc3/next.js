@@ -63,7 +63,7 @@ test.describe("Figma File Viewer", () => {
 
       // Check that view mode tabs are visible
       await expect(page.getByRole("button", { name: "Render" })).toBeVisible();
-      await expect(page.getByRole("button", { name: "Tree" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Tree" }).first()).toBeVisible();
       await expect(page.getByRole("button", { name: "Text" })).toBeVisible();
       await expect(page.getByRole("button", { name: "Stats" })).toBeVisible();
     });
@@ -87,8 +87,8 @@ test.describe("Figma File Viewer", () => {
       // Check tree is visible
       await expect(page.locator(".component-tree")).toBeVisible();
 
-      // Check for document node in tree
-      await expect(page.getByText("Document")).toBeVisible();
+      // Check for DOCUMENT type label in tree (exact match)
+      await expect(page.locator(".component-tree").getByText("DOCUMENT", { exact: true })).toBeVisible();
     });
   });
 
@@ -263,15 +263,15 @@ test.describe("Figma File Viewer", () => {
 
       await expect(page.locator(".figma-canvas")).toBeVisible({ timeout: 10000 });
 
-      // Check element with 50% opacity
+      // Check element with 50% opacity exists and has correct opacity
       const halfOpacityElement = page.locator('[data-figma-name="Opacity 50%"]');
-      await expect(halfOpacityElement).toBeVisible();
 
-      const opacity = await halfOpacityElement.evaluate((el) => {
-        return window.getComputedStyle(el).opacity;
-      });
+      // Scroll to element (it may be below the fold)
+      await halfOpacityElement.scrollIntoViewIfNeeded();
 
-      expect(parseFloat(opacity)).toBeCloseTo(0.5, 1);
+      // Check the element exists and has correct opacity via attribute
+      await expect(halfOpacityElement).toHaveCount(1);
+      await expect(halfOpacityElement).toHaveCSS("opacity", "0.5");
     });
   });
 
@@ -402,12 +402,9 @@ test.describe("Figma File Viewer", () => {
       const frame = page.locator(".figma-frame").first();
       await frame.click();
 
-      // Check it has selection outline
-      const outline = await frame.evaluate((el) => {
-        return window.getComputedStyle(el).outline;
-      });
-
-      expect(outline).toContain("rgb(0, 102, 255)"); // #0066ff
+      // Wait for selection to be applied (outline contains "solid" and blue color)
+      await expect(frame).toHaveCSS("outline-style", "solid", { timeout: 5000 });
+      await expect(frame).toHaveCSS("outline-color", "rgb(0, 102, 255)");
     });
 
     test("should show properties panel for selected node", async ({ page }) => {
@@ -421,9 +418,9 @@ test.describe("Figma File Viewer", () => {
       const textNode = page.locator(".figma-text").first();
       await textNode.click();
 
-      // Properties panel should show node info
-      await expect(page.getByText("ID")).toBeVisible();
-      await expect(page.getByText("Type")).toBeVisible();
+      // Properties panel should show node info (labels in the PropertyRow component)
+      await expect(page.locator("text=ID").first()).toBeVisible({ timeout: 5000 });
+      await expect(page.locator("text=Type").first()).toBeVisible();
     });
   });
 
@@ -436,13 +433,9 @@ test.describe("Figma File Viewer", () => {
       const checkbox = page.locator('input[type="checkbox"]');
       await checkbox.check();
 
-      // All frames should have dashed outlines
+      // Frames should have dashed outlines when Show Outlines is enabled
       const frame = page.locator(".figma-frame").first();
-      const outline = await frame.evaluate((el) => {
-        return window.getComputedStyle(el).outline;
-      });
-
-      expect(outline).toContain("dashed");
+      await expect(frame).toHaveCSS("outline-style", "dashed", { timeout: 5000 });
     });
   });
 
