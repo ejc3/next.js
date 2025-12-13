@@ -20,6 +20,45 @@ import {
   effectsToCSS,
 } from "../lib/figma-parser";
 
+/**
+ * Convert Figma blend mode to CSS mix-blend-mode
+ */
+function blendModeToCSS(blendMode: string | undefined): string | undefined {
+  if (!blendMode || blendMode === "PASS_THROUGH" || blendMode === "NORMAL") {
+    return undefined;
+  }
+  const mapping: Record<string, string> = {
+    "DARKEN": "darken",
+    "MULTIPLY": "multiply",
+    "LINEAR_BURN": "color-burn", // Approximate
+    "COLOR_BURN": "color-burn",
+    "LIGHTEN": "lighten",
+    "SCREEN": "screen",
+    "LINEAR_DODGE": "color-dodge", // Approximate
+    "COLOR_DODGE": "color-dodge",
+    "OVERLAY": "overlay",
+    "SOFT_LIGHT": "soft-light",
+    "HARD_LIGHT": "hard-light",
+    "DIFFERENCE": "difference",
+    "EXCLUSION": "exclusion",
+    "HUE": "hue",
+    "SATURATION": "saturation",
+    "COLOR": "color",
+    "LUMINOSITY": "luminosity",
+  };
+  return mapping[blendMode];
+}
+
+/**
+ * Apply blend mode to style object
+ */
+function applyBlendMode(s: CSSProperties, node: { blendMode?: string }): void {
+  const blendMode = blendModeToCSS(node.blendMode);
+  if (blendMode) {
+    s.mixBlendMode = blendMode as any;
+  }
+}
+
 interface FigmaRendererProps {
   node: FigmaNode;
   scale?: number;
@@ -430,9 +469,7 @@ function FrameRenderer({
     }
 
     // Blend mode
-    if (node.blendMode && node.blendMode !== "PASS_THROUGH" && node.blendMode !== "NORMAL") {
-      s.mixBlendMode = node.blendMode.toLowerCase().replace("_", "-") as CSSProperties["mixBlendMode"];
-    }
+    applyBlendMode(s, node);
 
     return s;
   }, [node, scale, wrapperStyle, renderMode]);
@@ -501,8 +538,13 @@ function GroupRenderer({
 
     if (node.effects && node.effects.length > 0) {
       const effects = effectsToCSS(node.effects);
+      if (effects.boxShadow) s.boxShadow = effects.boxShadow;
       if (effects.filter) s.filter = effects.filter;
+      if (effects.backdropFilter) s.backdropFilter = effects.backdropFilter;
     }
+
+    // Blend mode
+    applyBlendMode(s, node);
 
     return s;
   }, [node, scale, wrapperStyle, renderMode]);
@@ -568,12 +610,18 @@ function TextRenderer({
       s.fontSize = ts.fontSize * scale;
       s.fontWeight = ts.fontWeight;
 
-      if (ts.italic) {
+      // Font style (italic/oblique)
+      if (ts.fontStyle === "italic" || ts.italic) {
         s.fontStyle = "italic";
       }
 
+      // Letter spacing - handle both pixel and percent units
       if (ts.letterSpacing) {
-        s.letterSpacing = ts.letterSpacing * scale;
+        if (ts.letterSpacingUnit === "PERCENT") {
+          s.letterSpacing = `${ts.letterSpacing / 100}em`;
+        } else {
+          s.letterSpacing = ts.letterSpacing * scale;
+        }
       }
 
       if (ts.lineHeightPx) {
@@ -624,8 +672,16 @@ function TextRenderer({
     // Effects
     if (node.effects && node.effects.length > 0) {
       const effects = effectsToCSS(node.effects);
+      // Text uses text-shadow for drop shadows (more appropriate than box-shadow)
+      if (effects.boxShadow) {
+        // Convert box-shadow format to text-shadow (no spread value)
+        s.textShadow = effects.boxShadow.replace(/(\d+px)\s*(\d+px)\s*(\d+px)\s*\d+px/g, "$1 $2 $3");
+      }
       if (effects.filter) s.filter = effects.filter;
     }
+
+    // Blend mode
+    applyBlendMode(s, node);
 
     return s;
   }, [node, scale, wrapperStyle, renderMode]);
@@ -739,6 +795,9 @@ function VectorRenderer({
       s.opacity = node.opacity;
     }
 
+    // Blend mode
+    applyBlendMode(s, node);
+
     return s;
   }, [node, scale, wrapperStyle, renderMode]);
 
@@ -798,6 +857,15 @@ function SVGVectorRenderer({
     if (node.opacity !== undefined && node.opacity < 1) {
       s.opacity = node.opacity;
     }
+
+    // Effects
+    if (node.effects && node.effects.length > 0) {
+      const effects = effectsToCSS(node.effects);
+      if (effects.filter) s.filter = effects.filter;
+    }
+
+    // Blend mode
+    applyBlendMode(s, node);
 
     return s;
   }, [node, scale, wrapperStyle, renderMode]);
@@ -904,6 +972,17 @@ function BooleanRenderer({
     if (node.opacity !== undefined && node.opacity < 1) {
       s.opacity = node.opacity;
     }
+
+    // Effects
+    if (node.effects && node.effects.length > 0) {
+      const effects = effectsToCSS(node.effects);
+      if (effects.boxShadow) s.boxShadow = effects.boxShadow;
+      if (effects.filter) s.filter = effects.filter;
+      if (effects.backdropFilter) s.backdropFilter = effects.backdropFilter;
+    }
+
+    // Blend mode
+    applyBlendMode(s, node);
 
     return s;
   }, [node, scale, wrapperStyle, renderMode]);

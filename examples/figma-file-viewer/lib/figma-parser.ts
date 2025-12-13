@@ -280,29 +280,63 @@ export class FigmaParser {
       node.strokeWeight = change.strokeWeight || 1;
     }
 
-    // Handle text
+    // Handle text with full styling
     if (change.type === "TEXT") {
       node.characters = change.textData?.characters || change.name || "";
-      if (change.fontName) {
-        node.style = {
-          fontFamily: change.fontName.family || "Inter",
-          fontWeight: change.fontName.style?.includes("Bold") ? 700 : 400,
-          fontSize: change.fontSize || 16,
-        };
-      }
+
+      // Parse font weight from style name
+      const fontStyle = change.fontName?.style || "";
+      let fontWeight = 400;
+      if (fontStyle.includes("Thin")) fontWeight = 100;
+      else if (fontStyle.includes("ExtraLight") || fontStyle.includes("UltraLight")) fontWeight = 200;
+      else if (fontStyle.includes("Light")) fontWeight = 300;
+      else if (fontStyle.includes("Regular") || fontStyle.includes("Normal")) fontWeight = 400;
+      else if (fontStyle.includes("Medium")) fontWeight = 500;
+      else if (fontStyle.includes("SemiBold") || fontStyle.includes("DemiBold")) fontWeight = 600;
+      else if (fontStyle.includes("ExtraBold") || fontStyle.includes("UltraBold")) fontWeight = 800;
+      else if (fontStyle.includes("Bold")) fontWeight = 700;
+      else if (fontStyle.includes("Black") || fontStyle.includes("Heavy")) fontWeight = 900;
+
+      // Detect italic
+      const fontStyleCSS = fontStyle.includes("Italic") || fontStyle.includes("Oblique") ? "italic" : "normal";
+
+      node.style = {
+        fontFamily: change.fontName?.family || "Inter",
+        fontWeight: fontWeight,
+        fontSize: change.fontSize || 16,
+        fontStyle: fontStyleCSS,
+        textAlignHorizontal: change.textAlignHorizontal || "LEFT",
+        textAlignVertical: change.textAlignVertical || "TOP",
+        letterSpacing: change.letterSpacing?.value || 0,
+        letterSpacingUnit: change.letterSpacing?.units || "PIXELS",
+        lineHeightPx: change.lineHeight?.units === "PIXELS" ? change.lineHeight.value : undefined,
+        lineHeightPercent: change.lineHeight?.units === "PERCENT" ? change.lineHeight.value : undefined,
+      };
     }
 
-    // Handle corner radius
-    if (change.cornerRadius !== undefined) {
+    // Handle corner radius - individual corners take priority
+    if (change.rectangleTopLeftCornerRadius !== undefined ||
+        change.rectangleTopRightCornerRadius !== undefined ||
+        change.rectangleBottomLeftCornerRadius !== undefined ||
+        change.rectangleBottomRightCornerRadius !== undefined) {
+      node.rectangleCornerRadii = [
+        change.rectangleTopLeftCornerRadius || 0,
+        change.rectangleTopRightCornerRadius || 0,
+        change.rectangleBottomRightCornerRadius || 0,
+        change.rectangleBottomLeftCornerRadius || 0,
+      ];
+    } else if (change.cornerRadius !== undefined) {
       node.cornerRadius = change.cornerRadius;
-    }
-    if (change.rectangleCornerRadii) {
-      node.rectangleCornerRadii = change.rectangleCornerRadii;
     }
 
     // Handle opacity
     if (change.opacity !== undefined) {
       node.opacity = change.opacity;
+    }
+
+    // Handle blend mode
+    if (change.blendMode && change.blendMode !== "PASS_THROUGH") {
+      node.blendMode = change.blendMode;
     }
 
     // Handle effects
