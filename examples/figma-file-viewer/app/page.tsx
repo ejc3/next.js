@@ -10,6 +10,26 @@ import { FileUploader, SampleFileLoader } from "../components/FileUploader";
 type ViewMode = "render" | "tree" | "text" | "stats" | "prototype";
 type SidePanel = "tree" | "properties" | "none";
 
+// Map Figma easing types to CSS timing functions
+function mapFigmaEasingToCSS(easingType?: string): string {
+  switch (easingType) {
+    case "LINEAR": return "linear";
+    case "EASE_IN": return "ease-in";
+    case "EASE_OUT": return "ease-out";
+    case "EASE_IN_AND_OUT": return "ease-in-out";
+    case "EASE_IN_BACK": return "cubic-bezier(0.6, -0.28, 0.735, 0.045)";
+    case "EASE_OUT_BACK": return "cubic-bezier(0.175, 0.885, 0.32, 1.275)";
+    case "EASE_IN_AND_OUT_BACK": return "cubic-bezier(0.68, -0.55, 0.265, 1.55)";
+    case "GENTLE": return "cubic-bezier(0.4, 0, 0.2, 1)";
+    case "QUICK": return "cubic-bezier(0.4, 0, 0.6, 1)";
+    case "BOUNCY": return "cubic-bezier(0.68, -0.55, 0.265, 1.55)";
+    case "SLOW": return "cubic-bezier(0.4, 0, 0.2, 1)";
+    case "IN_CUBIC": return "cubic-bezier(0.55, 0.055, 0.675, 0.19)";
+    case "OUT_CUBIC": return "cubic-bezier(0.215, 0.61, 0.355, 1)";
+    default: return "ease-in-out";
+  }
+}
+
 export default function FigmaViewerPage() {
   const [parser] = useState(() => createParser());
   const [figmaFile, setFigmaFile] = useState<FigmaFile | null>(null);
@@ -28,6 +48,8 @@ export default function FigmaViewerPage() {
     type: string;
     direction?: string;
     isAnimating: boolean;
+    duration?: number;
+    easing?: string;
   } | null>(null);
 
   // Parse the file content
@@ -144,19 +166,24 @@ export default function FigmaViewerPage() {
 
   // Handle prototype navigation
   const handlePrototypeNavigate = useCallback(
-    (targetNodeId: string, transitionType?: string) => {
+    (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => {
       // In prototype mode, switch to the target frame with transition
       if (viewMode === "prototype") {
         // Determine transition type and duration
         const transition = transitionType || "INSTANT";
-        const duration = transition === "INSTANT" ? 0 : 300; // ms
+        // Use provided duration or default (300ms for animated, 0 for instant)
+        const duration = transition === "INSTANT" ? 0 : (transitionDuration ?? 300);
+        // Map Figma easing to CSS timing function
+        const easing = mapFigmaEasingToCSS(easingType);
 
         if (duration > 0) {
-          // Start transition animation
+          // Start transition animation with custom duration and easing
           setPrototypeTransition({
             type: transition,
             direction: transition.includes("IN") ? "in" : transition.includes("OUT") ? "out" : undefined,
             isAnimating: true,
+            duration,
+            easing,
           });
 
           // Change frame partway through for some transitions
@@ -477,7 +504,10 @@ export default function FigmaViewerPage() {
                           ...prototypeCanvasStyle,
                           transform: `scale(${scale})`,
                           transformOrigin: "top left",
-                        }}
+                          // Custom CSS properties for transition duration and easing
+                          "--prototype-duration": prototypeTransition?.duration ? `${prototypeTransition.duration}ms` : "300ms",
+                          "--prototype-easing": prototypeTransition?.easing || "ease-in-out",
+                        } as React.CSSProperties}
                       >
                         {currentPrototypeFrame && (
                           <FigmaRenderer

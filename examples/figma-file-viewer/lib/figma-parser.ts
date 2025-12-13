@@ -958,6 +958,27 @@ export class FigmaParser {
     if (change.stackCounterSizing) {
       node.counterAxisSizingMode = change.stackCounterSizing;
     }
+    // Primary axis alignment (justify-content equivalent)
+    // stackPrimaryAlignItems takes precedence over stackJustify
+    if (change.stackPrimaryAlignItems) {
+      node.primaryAxisAlignItems = change.stackPrimaryAlignItems;
+    } else if (change.stackJustify) {
+      node.primaryAxisAlignItems = change.stackJustify;
+    }
+    // Counter axis alignment (align-items equivalent)
+    if (change.stackCounterAlignItems) {
+      node.counterAxisAlignItems = change.stackCounterAlignItems;
+    } else if (change.stackCounterAlign) {
+      node.counterAxisAlignItems = change.stackCounterAlign;
+    }
+    // Counter axis spacing (gap for wrapped items)
+    if (change.stackCounterSpacing !== undefined) {
+      node.counterAxisSpacing = change.stackCounterSpacing;
+    }
+    // Layout wrap (if available)
+    if (change.stackWrap !== undefined) {
+      node.layoutWrap = change.stackWrap;
+    }
 
     // Handle corner smoothing (iOS-style squircle)
     if (change.cornerSmoothing !== undefined && change.cornerSmoothing > 0) {

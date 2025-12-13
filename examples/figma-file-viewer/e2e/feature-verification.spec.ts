@@ -227,9 +227,9 @@ Generated: ${timestamp}
 - [x] Full affine transforms (2×3 matrices)
 - [x] Correct transform composition
 - [x] Rotation around pivot
-- [ ] Non-uniform scale stroke behavior
-- [ ] Scale strokes toggle
-- [ ] Scale effects toggle
+- [x] Non-uniform scale stroke behavior (vectorEffect)
+- [x] Scale strokes toggle (strokesIndependent)
+- [x] Scale effects toggle (effectsIndependent)
 
 ### 2) Painting Model & Compositing
 - [x] Exact stacking order
@@ -260,7 +260,8 @@ Generated: ${timestamp}
 - [x] Stroke joins (miter, bevel, round)
 - [x] Stroke caps (butt, square, round)
 - [x] Stroke alignment (center, inside, outside)
-- [x] Dashed strokes
+- [x] Dashed strokes (SVG dasharray)
+- [x] Miter limit (SVG miterlimit)
 
 ### 6) Fills and Paints
 - [x] Solid fill (RGBA)
@@ -275,7 +276,7 @@ Generated: ${timestamp}
 - [x] Clip paths
 - [x] Nested clips
 - [x] Alpha masks
-- [ ] Luminance masks
+- [x] Luminance masks (grayscale filter)
 - [x] Clip content on frames
 
 ### 8) Effects
@@ -293,6 +294,7 @@ Generated: ${timestamp}
 - [x] Letter spacing
 - [x] Text decoration
 - [x] Text case transforms
+- [x] Text truncation with maxLines
 
 ### 10) Corner Smoothing
 - [x] Continuous corner generation
@@ -312,12 +314,29 @@ Generated: ${timestamp}
 - [x] Constraints
 - [x] Auto Layout horizontal/vertical
 - [x] Spacing and padding
-- [x] Alignment
-- [ ] Wrapping
+- [x] Alignment (justify-content, align-items)
+- [x] Wrapping (flexWrap)
+- [x] Counter axis spacing (rowGap/columnGap)
 
 ### 14) Components/Instances
 - [x] Instance resolution (flattened)
 - [ ] Override resolution
+
+### 15) Prototype Interactions
+- [x] Parse prototype interactions
+- [x] ON_CLICK navigation
+- [x] ON_HOVER navigation
+- [x] ON_DRAG/DRAG navigation
+- [x] MOUSE_ENTER/MOUSE_LEAVE
+- [x] Custom transition durations
+- [x] Custom easing functions
+- [x] SCROLL_TO navigation
+- [x] External URL links
+- [x] Transition animations (dissolve, slide, move, push)
+- [x] Prototype preview mode with device frame
+- [ ] OVERLAY navigation
+- [ ] SWAP component interactions
+- [ ] AFTER_TIMEOUT triggers
 
 `;
 

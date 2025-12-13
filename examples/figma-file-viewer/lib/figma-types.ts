@@ -123,8 +123,8 @@ export type LayoutMode = "NONE" | "HORIZONTAL" | "VERTICAL";
 export type LayoutAlign = "MIN" | "CENTER" | "MAX" | "STRETCH" | "INHERIT";
 export type LayoutSizingMode = "FIXED" | "HUG" | "FILL";
 export type LayoutWrap = "NO_WRAP" | "WRAP";
-export type PrimaryAxisAlignItems = "MIN" | "CENTER" | "MAX" | "SPACE_BETWEEN";
-export type CounterAxisAlignItems = "MIN" | "CENTER" | "MAX" | "BASELINE";
+export type PrimaryAxisAlignItems = "MIN" | "CENTER" | "MAX" | "SPACE_BETWEEN" | "SPACE_EVENLY";
+export type CounterAxisAlignItems = "MIN" | "CENTER" | "MAX" | "BASELINE" | "STRETCH" | "AUTO";
 
 // Blend Modes
 export type BlendMode =

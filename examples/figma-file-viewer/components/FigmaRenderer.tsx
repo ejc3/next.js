@@ -171,6 +171,21 @@ function getStrokeVectorEffect(node: {
 }
 
 /**
+ * Get SVG stroke-dasharray from Figma dashPattern
+ */
+function getStrokeDashArray(node: any): string | undefined {
+  if (!node.dashPattern || node.dashPattern.length === 0) return undefined;
+  return node.dashPattern.join(" ");
+}
+
+/**
+ * Get SVG stroke-miterlimit from Figma miterLimit
+ */
+function getStrokeMiterLimit(node: any): number | undefined {
+  return node.miterLimit;
+}
+
+/**
  * Check if a node has prototype interactions
  */
 function hasPrototypeInteractions(node: { prototypeInteractions?: any[] }): boolean {
@@ -263,7 +278,7 @@ interface FigmaRendererProps {
   scale?: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
-  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void;
   renderMode?: "absolute" | "flow";
   showOutlines?: boolean;
   parentBounds?: Rectangle; // Parent's bounding box for relative positioning
@@ -397,16 +412,47 @@ export function FigmaRenderer({
 
       // Check if this node has prototype interactions
       const interactions = (node as any).prototypeInteractions;
-      if (interactions && interactions.length > 0 && onPrototypeNavigate) {
-        // Find ON_CLICK interaction
+      if (interactions && interactions.length > 0) {
+        // Find ON_CLICK or ON_DRAG interaction
         const clickInteraction = interactions.find(
-          (i: any) => i.event?.interactionType === "ON_CLICK"
+          (i: any) => i.event?.interactionType === "ON_CLICK" ||
+                      i.event?.interactionType === "ON_DRAG" ||
+                      i.event?.interactionType === "DRAG"
         );
         if (clickInteraction && clickInteraction.actions?.[0]) {
           const action = clickInteraction.actions[0];
-          if (action.transitionNodeID) {
+
+          // Handle external URL
+          if (action.connectionType === "EXTERNAL_URL" && action.url) {
             e.preventDefault();
-            onPrototypeNavigate(action.transitionNodeID, action.transitionType);
+            window.open(action.url, "_blank", "noopener,noreferrer");
+            return;
+          }
+
+          // Handle SCROLL_TO navigation
+          if (action.navigationType === "SCROLL_TO" && action.transitionNodeID) {
+            e.preventDefault();
+            const targetElement = document.querySelector(`[data-figma-id="${action.transitionNodeID}"]`);
+            if (targetElement) {
+              targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+              // Add highlight effect
+              targetElement.classList.add("prototype-target-highlight");
+              setTimeout(() => {
+                targetElement.classList.remove("prototype-target-highlight");
+              }, 1000);
+            }
+            return;
+          }
+
+          // Handle standard navigation
+          if (action.transitionNodeID && onPrototypeNavigate) {
+            e.preventDefault();
+            onPrototypeNavigate(
+              action.transitionNodeID,
+              action.transitionType,
+              action.transitionDuration,
+              action.easingType
+            );
             return;
           }
         }
@@ -612,7 +658,7 @@ function CanvasRenderer({
   scale: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
-  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
@@ -682,6 +728,63 @@ function CanvasRenderer({
 }
 
 /**
+ * Get hover interaction from node's prototype interactions
+ */
+function getHoverInteraction(node: { prototypeInteractions?: any[] }): any | null {
+  if (!node.prototypeInteractions) return null;
+  return node.prototypeInteractions.find(
+    (i: any) => i.event?.interactionType === "ON_HOVER" ||
+                i.event?.interactionType === "MOUSE_ENTER"
+  ) || null;
+}
+
+/**
+ * Create hover handlers for prototype interactions
+ */
+function useHoverHandlers(
+  node: { prototypeInteractions?: any[] },
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void
+) {
+  const handleMouseEnter = useCallback(() => {
+    if (!onPrototypeNavigate) return;
+    const hoverInteraction = getHoverInteraction(node);
+    if (hoverInteraction && hoverInteraction.actions?.[0]) {
+      const action = hoverInteraction.actions[0];
+      if (action.transitionNodeID) {
+        onPrototypeNavigate(
+          action.transitionNodeID,
+          action.transitionType,
+          action.transitionDuration,
+          action.easingType
+        );
+      }
+    }
+  }, [node, onPrototypeNavigate]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (!onPrototypeNavigate || !node.prototypeInteractions) return;
+    // Find MOUSE_LEAVE interaction
+    const leaveInteraction = node.prototypeInteractions.find(
+      (i: any) => i.event?.interactionType === "MOUSE_LEAVE"
+    );
+    if (leaveInteraction && leaveInteraction.actions?.[0]) {
+      const action = leaveInteraction.actions[0];
+      if (action.transitionNodeID) {
+        onPrototypeNavigate(
+          action.transitionNodeID,
+          action.transitionType,
+          action.transitionDuration,
+          action.easingType
+        );
+      }
+    }
+  }, [node, onPrototypeNavigate]);
+
+  const hasHover = getHoverInteraction(node) !== null;
+  return { handleMouseEnter, handleMouseLeave, hasHover };
+}
+
+/**
  * Frame Renderer
  */
 function FrameRenderer({
@@ -700,13 +803,14 @@ function FrameRenderer({
   scale: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
-  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
   showOutlines: boolean;
   parentBounds?: Rectangle;
 }) {
+  const { handleMouseEnter, handleMouseLeave, hasHover } = useHoverHandlers(node, onPrototypeNavigate);
   const style = useMemo(() => {
     const s: CSSProperties = {
       ...wrapperStyle,
@@ -738,20 +842,23 @@ function FrameRenderer({
         s.flexWrap = "wrap";
       }
 
-      // Primary axis alignment
+      // Primary axis alignment (justify-content)
       switch (node.primaryAxisAlignItems) {
         case "MIN": s.justifyContent = "flex-start"; break;
         case "CENTER": s.justifyContent = "center"; break;
         case "MAX": s.justifyContent = "flex-end"; break;
         case "SPACE_BETWEEN": s.justifyContent = "space-between"; break;
+        case "SPACE_EVENLY": s.justifyContent = "space-evenly"; break;
       }
 
-      // Counter axis alignment
+      // Counter axis alignment (align-items)
       switch (node.counterAxisAlignItems) {
         case "MIN": s.alignItems = "flex-start"; break;
         case "CENTER": s.alignItems = "center"; break;
         case "MAX": s.alignItems = "flex-end"; break;
         case "BASELINE": s.alignItems = "baseline"; break;
+        case "STRETCH": s.alignItems = "stretch"; break;
+        case "AUTO": s.alignItems = "auto"; break;
       }
 
       // Padding
@@ -760,8 +867,13 @@ function FrameRenderer({
       if (node.paddingBottom) s.paddingBottom = node.paddingBottom * scale;
       if (node.paddingLeft) s.paddingLeft = node.paddingLeft * scale;
 
-      // Gap
-      if (node.itemSpacing) s.gap = node.itemSpacing * scale;
+      // Gap (item spacing for primary axis, counter axis spacing for wrapped rows)
+      if (node.itemSpacing !== undefined && node.counterAxisSpacing !== undefined) {
+        s.rowGap = (node.layoutMode === "HORIZONTAL" ? node.counterAxisSpacing : node.itemSpacing) * scale;
+        s.columnGap = (node.layoutMode === "HORIZONTAL" ? node.itemSpacing : node.counterAxisSpacing) * scale;
+      } else if (node.itemSpacing) {
+        s.gap = node.itemSpacing * scale;
+      }
     }
 
     // Background
@@ -837,6 +949,8 @@ function FrameRenderer({
     <div
       className={`figma-frame figma-${node.type.toLowerCase()}`}
       onClick={onClick}
+      onMouseEnter={hasHover ? handleMouseEnter : undefined}
+      onMouseLeave={hasHover ? handleMouseLeave : undefined}
       style={style}
       data-figma-id={node.id}
       data-figma-name={node.name}
@@ -878,7 +992,7 @@ function GroupRenderer({
   scale: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
-  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
@@ -1291,6 +1405,8 @@ function VectorRenderer({
             fill={fillColor}
             stroke={strokeColor}
             strokeWidth={node.strokeWeight || 0}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
             vectorEffect={getStrokeVectorEffect(node)}
           />
         </svg>
@@ -1346,6 +1462,8 @@ function VectorRenderer({
             fill={fillColor}
             stroke={strokeColor}
             strokeWidth={node.strokeWeight || 0}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
             vectorEffect={getStrokeVectorEffect(node)}
           />
         </svg>
@@ -1469,6 +1587,8 @@ function SVGVectorRenderer({
             strokeWidth={node.strokeWeight || 1}
             strokeLinecap={node.strokeCap === "ROUND" ? "round" : node.strokeCap === "SQUARE" ? "square" : "butt"}
             strokeLinejoin={node.strokeJoin === "ROUND" ? "round" : node.strokeJoin === "BEVEL" ? "bevel" : "miter"}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
             fillRule={sp.windingRule === "EVENODD" || sp.windingRule === "ODD" ? "evenodd" : "nonzero"}
             vectorEffect={getStrokeVectorEffect(node)}
           />
@@ -1483,6 +1603,8 @@ function SVGVectorRenderer({
             strokeWidth={node.strokeWeight || 1}
             strokeLinecap={node.strokeCap === "ROUND" ? "round" : node.strokeCap === "SQUARE" ? "square" : "butt"}
             strokeLinejoin={node.strokeJoin === "ROUND" ? "round" : node.strokeJoin === "BEVEL" ? "bevel" : "miter"}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
             vectorEffect={getStrokeVectorEffect(node)}
           />
         ))}
@@ -1494,6 +1616,8 @@ function SVGVectorRenderer({
             fill={fillColor}
             stroke={strokeColor}
             strokeWidth={node.strokeWeight || 0}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
             fillRule={geom.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
             vectorEffect={getStrokeVectorEffect(node)}
           />
@@ -1615,6 +1739,8 @@ function BooleanRenderer({
               fill={fillColor}
               stroke={strokeColor}
               strokeWidth={node.strokeWeight || 0}
+              strokeDasharray={getStrokeDashArray(node)}
+              strokeMiterlimit={getStrokeMiterLimit(node)}
               fillRule={geom.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
               vectorEffect={getStrokeVectorEffect(node)}
             />
