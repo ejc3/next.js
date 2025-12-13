@@ -809,8 +809,10 @@ export class FigmaParser {
         }
       }
       if (fillPaths.length > 0) {
-        // Prefer commandsBlob paths over vectorNetwork if available
+        // Store in both vectorPaths and fillGeometry for compatibility
+        // vectorPaths is used by SVGVectorRenderer, fillGeometry by BooleanRenderer
         node.vectorPaths = fillPaths;
+        (node as any).fillGeometry = fillPaths;
       }
     }
 
