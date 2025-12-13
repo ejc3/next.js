@@ -204,31 +204,59 @@ export interface VectorVertex {
   handleMirroring?: "NONE" | "ANGLE" | "ANGLE_AND_LENGTH";
 }
 
-// Node Types
+// Node Types - Comprehensive list from Figma API
+// See: https://www.figma.com/plugin-docs/api/nodes/
 export type NodeType =
+  // Document & Structure
   | "DOCUMENT"
-  | "CANVAS"
+  | "CANVAS"        // Also known as PAGE in Plugin API
+  | "PAGE"          // Plugin API name for canvas
   | "FRAME"
   | "GROUP"
+  | "SECTION"
+  // Shapes & Vectors
   | "VECTOR"
   | "BOOLEAN_OPERATION"
   | "STAR"
   | "LINE"
   | "ELLIPSE"
   | "REGULAR_POLYGON"
+  | "POLYGON"       // Alternative name
   | "RECTANGLE"
+  | "ROUNDED_RECTANGLE"  // Internal fig-kiwi type
+  // Tables
   | "TABLE"
   | "TABLE_CELL"
+  // Text
   | "TEXT"
-  | "SLICE"
+  | "TEXT_PATH"     // Beta feature
+  // Components
   | "COMPONENT"
   | "COMPONENT_SET"
   | "INSTANCE"
+  | "SYMBOL"        // Internal fig-kiwi type
+  // Slicing & Export
+  | "SLICE"
+  // FigJam & Collaboration
   | "STICKY"
   | "SHAPE_WITH_TEXT"
   | "CONNECTOR"
   | "WASHI_TAPE"
-  | "SECTION";
+  | "STAMP"
+  | "HIGHLIGHT"
+  | "CODE_BLOCK"
+  // Embeds & Media
+  | "EMBED"
+  | "LINK_UNFURL"
+  | "MEDIA"
+  | "WIDGET"
+  // Slides (FigJam/Presentation)
+  | "SLIDE"
+  | "SLIDE_ROW"
+  | "SLIDE_GRID"
+  | "INTERACTIVE_SLIDE_ELEMENT"
+  // Advanced
+  | "TRANSFORM_GROUP";
 
 // Base Node
 export interface BaseNode {

@@ -136,17 +136,18 @@ export class FigmaParser {
       // Extract thumbnail if available
       const thumbnailFile = contents.file("thumbnail.png");
       if (thumbnailFile) {
-        const thumbnailData = await thumbnailFile.async("uint8array");
-        this.images.set("thumbnail", URL.createObjectURL(new Blob([thumbnailData], { type: "image/png" })));
+        const thumbnailData = await thumbnailFile.async("base64");
+        this.images.set("thumbnail", `data:image/png;base64,${thumbnailData}`);
       }
 
-      // Extract images
+      // Extract images - convert to base64 data URLs for portability
       const imageFiles = contents.file(/^images\//);
       for (const imageFile of imageFiles) {
         if (!imageFile.dir) {
-          const imageData = await imageFile.async("uint8array");
+          const imageData = await imageFile.async("base64");
           const imageName = imageFile.name.split("/").pop() || "";
-          this.images.set(imageName, URL.createObjectURL(new Blob([imageData])));
+          // Detect image type from first bytes or default to png
+          this.images.set(imageName, `data:image/png;base64,${imageData}`);
         }
       }
 
@@ -327,6 +328,20 @@ export class FigmaParser {
   }
 
   /**
+   * Convert a hash object (with numeric keys 0-19) to hex string
+   */
+  private hashToHex(hash: any): string {
+    if (!hash) return "";
+    const bytes: number[] = [];
+    for (let i = 0; i < 20; i++) {
+      if (hash[i] !== undefined) {
+        bytes.push(hash[i]);
+      }
+    }
+    return bytes.map(b => b.toString(16).padStart(2, "0")).join("");
+  }
+
+  /**
    * Convert fig-kiwi paint to our paint format
    */
   private convertPaint(paint: any): Paint {
@@ -335,7 +350,20 @@ export class FigmaParser {
       visible: paint.visible !== false,
     };
 
-    if (paint.type === "SOLID" || !paint.type) {
+    if (paint.type === "IMAGE") {
+      result.type = "IMAGE";
+      result.opacity = paint.opacity ?? 1;
+      result.scaleMode = paint.imageScaleMode || "FILL";
+      // Convert hash to hex string for image lookup
+      if (paint.image?.hash) {
+        const hashHex = this.hashToHex(paint.image.hash);
+        result.imageRef = hashHex;
+        // Store the blob URL if we have it
+        if (this.images.has(hashHex)) {
+          (result as any).imageUrl = this.images.get(hashHex);
+        }
+      }
+    } else if (paint.type === "SOLID" || !paint.type) {
       result.type = "SOLID";
       if (paint.color) {
         result.color = {
@@ -606,6 +634,15 @@ export function paintToCSS(paint: Paint): string | null {
           .map((stop) => `${colorToRgba(stop.color)} ${stop.position * 100}%`)
           .join(", ");
         return `radial-gradient(circle, ${stops})`;
+      }
+      return null;
+
+    case "IMAGE":
+      // Check for imageUrl (blob URL from parsed .fig file)
+      if ((paint as any).imageUrl) {
+        const scaleMode = paint.scaleMode || "FILL";
+        const size = scaleMode === "FILL" ? "cover" : scaleMode === "FIT" ? "contain" : "auto";
+        return `url(${(paint as any).imageUrl}) center/${size} no-repeat`;
       }
       return null;
 

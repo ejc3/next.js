@@ -106,6 +106,16 @@ export function FigmaRenderer({
     case "COMPONENT":
     case "COMPONENT_SET":
     case "INSTANCE":
+    case "SYMBOL":
+    case "SECTION":
+    case "SLIDE":
+    case "SLIDE_ROW":
+    case "SLIDE_GRID":
+    case "TRANSFORM_GROUP":
+    case "WIDGET":
+    case "EMBED":
+    case "MEDIA":
+    case "LINK_UNFURL":
       return (
         <FrameRenderer
           node={node as FrameNode}
@@ -120,6 +130,10 @@ export function FigmaRenderer({
       );
 
     case "GROUP":
+    case "STICKY":
+    case "SHAPE_WITH_TEXT":
+    case "CONNECTOR":
+    case "CODE_BLOCK":
       return (
         <GroupRenderer
           node={node as GroupNode}
@@ -145,11 +159,19 @@ export function FigmaRenderer({
       );
 
     case "RECTANGLE":
+    case "ROUNDED_RECTANGLE":
     case "ELLIPSE":
     case "LINE":
     case "VECTOR":
     case "STAR":
     case "REGULAR_POLYGON":
+    case "POLYGON":
+    case "TEXT_PATH":
+    case "SLICE":
+    case "STAMP":
+    case "HIGHLIGHT":
+    case "WASHI_TAPE":
+    case "INTERACTIVE_SLIDE_ELEMENT":
       return (
         <VectorRenderer
           node={node as VectorNode}
@@ -362,7 +384,9 @@ function FrameRenderer({
         if (bg) backgrounds.push(bg);
       }
       if (backgrounds.length > 0) {
-        if (backgrounds.length === 1 && !backgrounds[0].includes("gradient")) {
+        // Use 'background' for images and gradients, 'backgroundColor' for solid colors
+        const hasImageOrGradient = backgrounds.some(bg => bg.includes("url(") || bg.includes("gradient"));
+        if (backgrounds.length === 1 && !hasImageOrGradient) {
           s.backgroundColor = backgrounds[0];
         } else {
           s.background = backgrounds.reverse().join(", ");
@@ -660,7 +684,9 @@ function VectorRenderer({
         if (bg) backgrounds.push(bg);
       }
       if (backgrounds.length > 0) {
-        if (backgrounds.length === 1 && !backgrounds[0].includes("gradient")) {
+        // Use 'background' for images and gradients, 'backgroundColor' for solid colors
+        const hasImageOrGradient = backgrounds.some(bg => bg.includes("url(") || bg.includes("gradient"));
+        if (backgrounds.length === 1 && !hasImageOrGradient) {
           s.backgroundColor = backgrounds[0];
         } else {
           s.background = backgrounds.reverse().join(", ");
@@ -683,7 +709,7 @@ function VectorRenderer({
     }
 
     // Border radius for rectangles
-    if (node.type === "RECTANGLE") {
+    if (node.type === "RECTANGLE" || node.type === "ROUNDED_RECTANGLE") {
       if (node.cornerRadius) {
         s.borderRadius = node.cornerRadius * scale;
       } else if (node.rectangleCornerRadii) {
@@ -866,7 +892,12 @@ function BooleanRenderer({
         if (bg) backgrounds.push(bg);
       }
       if (backgrounds.length > 0) {
-        s.backgroundColor = backgrounds[0];
+        // Use 'background' for images, 'backgroundColor' for solid colors
+        if (backgrounds[0].includes("url(")) {
+          s.background = backgrounds[0];
+        } else {
+          s.backgroundColor = backgrounds[0];
+        }
       }
     }
 

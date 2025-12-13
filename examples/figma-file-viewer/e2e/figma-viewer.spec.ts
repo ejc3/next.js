@@ -601,4 +601,56 @@ test.describe("Real .fig File Tests", () => {
     const nodeCount = await page.locator(".component-tree .tree-node").count();
     expect(nodeCount).toBeGreaterThan(0);
   });
+
+  test("visual: real .fig file rendered screenshot", async ({ page }) => {
+    const fixturePath = path.join(__dirname, "fixtures", "prototype-group-26.fig");
+    const buffer = fs.readFileSync(fixturePath);
+    const fileInput = page.locator('input[type="file"]');
+    await fileInput.setInputFiles({
+      name: "prototype-group-26.fig",
+      mimeType: "application/octet-stream",
+      buffer: buffer,
+    });
+
+    await expect(page.locator(".figma-canvas, .figma-document")).toBeVisible({ timeout: 60000 });
+
+    // Wait for render to stabilize
+    await page.waitForTimeout(1000);
+
+    // Capture screenshot
+    await expect(page).toHaveScreenshot("real-fig-file-rendered.png", {
+      maxDiffPixels: 100,
+    });
+  });
+
+  test("should render IMAGE fills from .fig file", async ({ page }) => {
+    const fixturePath = path.join(__dirname, "fixtures", "prototype-group-26.fig");
+    const buffer = fs.readFileSync(fixturePath);
+    const fileInput = page.locator('input[type="file"]');
+    await fileInput.setInputFiles({
+      name: "prototype-group-26.fig",
+      mimeType: "application/octet-stream",
+      buffer: buffer,
+    });
+
+    await expect(page.locator(".figma-canvas, .figma-document")).toBeVisible({ timeout: 60000 });
+    await page.waitForTimeout(1000);
+
+    // Check for elements with background images (IMAGE fills from the .fig file)
+    const bgImageCount = await page.evaluate(() => {
+      const elements = document.querySelectorAll("[class*='figma-']");
+      let count = 0;
+      elements.forEach((el) => {
+        const style = window.getComputedStyle(el);
+        if (style.backgroundImage && style.backgroundImage.includes("data:image")) {
+          count++;
+        }
+      });
+      return count;
+    });
+
+    // The prototype-group-26.fig file has 55 IMAGE paint fills
+    // We expect at least 20 of them to render as background images
+    expect(bgImageCount).toBeGreaterThan(20);
+  });
 });
