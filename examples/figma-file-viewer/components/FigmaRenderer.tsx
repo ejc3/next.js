@@ -143,6 +143,34 @@ function getLuminanceMaskFilter(): string {
 }
 
 /**
+ * Check if a node has a non-uniform transform (different X and Y scale)
+ * This affects how strokes should be rendered
+ */
+function hasNonUniformTransform(node: { relativeTransform?: number[][] }): boolean {
+  if (!node.relativeTransform) return false;
+  const [[m00, m01], [m10, m11]] = node.relativeTransform;
+  // Calculate scale factors from transform matrix
+  const scaleX = Math.sqrt(m00 * m00 + m10 * m10);
+  const scaleY = Math.sqrt(m01 * m01 + m11 * m11);
+  // Check if scales differ significantly (more than 1% difference)
+  return Math.abs(scaleX - scaleY) > 0.01 * Math.max(scaleX, scaleY);
+}
+
+/**
+ * Get the SVG vector-effect attribute for strokes
+ * Returns "non-scaling-stroke" for nodes with non-uniform transforms or independent strokes
+ */
+function getStrokeVectorEffect(node: {
+  relativeTransform?: number[][];
+  strokesIndependent?: boolean
+}): "non-scaling-stroke" | undefined {
+  if (node.strokesIndependent || hasNonUniformTransform(node)) {
+    return "non-scaling-stroke";
+  }
+  return undefined;
+}
+
+/**
  * Apply transform matrix from Figma's relativeTransform
  * relativeTransform is a 2x3 matrix: [[m00, m01, m02], [m10, m11, m12]]
  * CSS matrix() is: matrix(m00, m10, m01, m11, m02, m12)
@@ -1195,6 +1223,7 @@ function VectorRenderer({
             fill={fillColor}
             stroke={strokeColor}
             strokeWidth={node.strokeWeight || 0}
+            vectorEffect={getStrokeVectorEffect(node)}
           />
         </svg>
       </div>
@@ -1249,6 +1278,7 @@ function VectorRenderer({
             fill={fillColor}
             stroke={strokeColor}
             strokeWidth={node.strokeWeight || 0}
+            vectorEffect={getStrokeVectorEffect(node)}
           />
         </svg>
       </div>
@@ -1372,6 +1402,7 @@ function SVGVectorRenderer({
             strokeLinecap={node.strokeCap === "ROUND" ? "round" : node.strokeCap === "SQUARE" ? "square" : "butt"}
             strokeLinejoin={node.strokeJoin === "ROUND" ? "round" : node.strokeJoin === "BEVEL" ? "bevel" : "miter"}
             fillRule={sp.windingRule === "EVENODD" || sp.windingRule === "ODD" ? "evenodd" : "nonzero"}
+            vectorEffect={getStrokeVectorEffect(node)}
           />
         ))}
         {/* If no strokePaths but there are strokes, add stroke to vectorPaths */}
@@ -1384,6 +1415,7 @@ function SVGVectorRenderer({
             strokeWidth={node.strokeWeight || 1}
             strokeLinecap={node.strokeCap === "ROUND" ? "round" : node.strokeCap === "SQUARE" ? "square" : "butt"}
             strokeLinejoin={node.strokeJoin === "ROUND" ? "round" : node.strokeJoin === "BEVEL" ? "bevel" : "miter"}
+            vectorEffect={getStrokeVectorEffect(node)}
           />
         ))}
         {/* Fallback to fillGeometry if no vectorPaths */}
@@ -1395,6 +1427,7 @@ function SVGVectorRenderer({
             stroke={strokeColor}
             strokeWidth={node.strokeWeight || 0}
             fillRule={geom.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
+            vectorEffect={getStrokeVectorEffect(node)}
           />
         ))}
       </svg>
@@ -1515,6 +1548,7 @@ function BooleanRenderer({
               stroke={strokeColor}
               strokeWidth={node.strokeWeight || 0}
               fillRule={geom.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
+              vectorEffect={getStrokeVectorEffect(node)}
             />
           ))}
         </svg>
