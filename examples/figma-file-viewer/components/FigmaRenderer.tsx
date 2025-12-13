@@ -129,7 +129,12 @@ function applyEffects(
 
   if (shadows.length > 0) s.boxShadow = shadows.join(", ");
   if (filters.length > 0) s.filter = filters.join(" ");
-  if (backdropFilters.length > 0) s.backdropFilter = backdropFilters.join(" ");
+  if (backdropFilters.length > 0) {
+    const backdropValue = backdropFilters.join(" ");
+    s.backdropFilter = backdropValue;
+    // Add webkit prefix for Safari support
+    (s as any).WebkitBackdropFilter = backdropValue;
+  }
 }
 
 /**
@@ -278,10 +283,12 @@ interface FigmaRendererProps {
   scale?: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
-  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string, sourceNodeId?: string) => void;
   renderMode?: "absolute" | "flow";
   showOutlines?: boolean;
   parentBounds?: Rectangle; // Parent's bounding box for relative positioning
+  swapState?: Map<string, string>; // Maps original node IDs to their swapped component IDs
+  findNodeById?: (nodeId: string) => FigmaNode | null; // Function to find nodes by ID for SWAP
 }
 
 /**
@@ -405,7 +412,31 @@ export function FigmaRenderer({
   renderMode = "absolute",
   showOutlines = false,
   parentBounds,
+  swapState,
+  findNodeById,
 }: FigmaRendererProps) {
+  // Check if this node should be swapped
+  const swappedNodeId = swapState?.get(node.id);
+  const swappedNode = swappedNodeId && findNodeById ? findNodeById(swappedNodeId) : null;
+
+  // If this node is swapped, render the swapped node instead (preserving position)
+  if (swappedNode) {
+    return (
+      <FigmaRenderer
+        node={swappedNode}
+        scale={scale}
+        selectedId={selectedId}
+        onNodeClick={onNodeClick}
+        onPrototypeNavigate={onPrototypeNavigate}
+        renderMode={renderMode}
+        showOutlines={showOutlines}
+        parentBounds={parentBounds}
+        swapState={swapState}
+        findNodeById={findNodeById}
+      />
+    );
+  }
+
   const handleClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -444,15 +475,25 @@ export function FigmaRenderer({
             return;
           }
 
-          // Handle standard navigation
+          // Handle OVERLAY, SWAP, or standard navigation
           if (action.transitionNodeID && onPrototypeNavigate) {
             e.preventDefault();
             onPrototypeNavigate(
               action.transitionNodeID,
               action.transitionType,
               action.transitionDuration,
-              action.easingType
+              action.easingType,
+              action.navigationType,
+              // Pass source node ID for SWAP
+              action.navigationType === "SWAP" ? node.id : undefined
             );
+            return;
+          }
+
+          // Handle CLOSE/BACK action (for overlays)
+          if ((action.navigationType === "CLOSE" || action.navigationType === "BACK") && onPrototypeNavigate) {
+            e.preventDefault();
+            onPrototypeNavigate("", undefined, undefined, undefined, action.navigationType);
             return;
           }
         }
@@ -498,6 +539,8 @@ export function FigmaRenderer({
                 onPrototypeNavigate={onPrototypeNavigate}
                 renderMode={renderMode}
                 showOutlines={showOutlines}
+                swapState={swapState}
+                findNodeById={findNodeById}
               />
             ))}
         </div>
@@ -515,6 +558,8 @@ export function FigmaRenderer({
           wrapperStyle={getWrapperStyle()}
           renderMode={renderMode}
           showOutlines={showOutlines}
+          swapState={swapState}
+          findNodeById={findNodeById}
         />
       );
 
@@ -544,6 +589,8 @@ export function FigmaRenderer({
           renderMode={renderMode}
           showOutlines={showOutlines}
           parentBounds={parentBounds}
+          swapState={swapState}
+          findNodeById={findNodeById}
         />
       );
 
@@ -564,6 +611,8 @@ export function FigmaRenderer({
           renderMode={renderMode}
           showOutlines={showOutlines}
           parentBounds={parentBounds}
+          swapState={swapState}
+          findNodeById={findNodeById}
         />
       );
 
@@ -616,6 +665,8 @@ export function FigmaRenderer({
           renderMode={renderMode}
           showOutlines={showOutlines}
           parentBounds={parentBounds}
+          swapState={swapState}
+          findNodeById={findNodeById}
         />
       );
 
@@ -653,16 +704,20 @@ function CanvasRenderer({
   wrapperStyle,
   renderMode,
   showOutlines,
+  swapState,
+  findNodeById,
 }: {
   node: CanvasNode;
   scale: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
-  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string, sourceNodeId?: string) => void;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
   showOutlines: boolean;
+  swapState?: Map<string, string>;
+  findNodeById?: (nodeId: string) => FigmaNode | null;
 }) {
   const bgColor = node.backgroundColor
     ? colorToRgba(node.backgroundColor)
@@ -721,6 +776,8 @@ function CanvasRenderer({
           renderMode={renderMode}
           showOutlines={showOutlines}
           parentBounds={{ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }}
+          swapState={swapState}
+          findNodeById={findNodeById}
         />
       ))}
     </div>
@@ -743,7 +800,7 @@ function getHoverInteraction(node: { prototypeInteractions?: any[] }): any | nul
  */
 function useHoverHandlers(
   node: { prototypeInteractions?: any[] },
-  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string) => void
 ) {
   const handleMouseEnter = useCallback(() => {
     if (!onPrototypeNavigate) return;
@@ -755,7 +812,8 @@ function useHoverHandlers(
           action.transitionNodeID,
           action.transitionType,
           action.transitionDuration,
-          action.easingType
+          action.easingType,
+          action.navigationType
         );
       }
     }
@@ -774,7 +832,8 @@ function useHoverHandlers(
           action.transitionNodeID,
           action.transitionType,
           action.transitionDuration,
-          action.easingType
+          action.easingType,
+          action.navigationType
         );
       }
     }
@@ -798,17 +857,21 @@ function FrameRenderer({
   renderMode,
   showOutlines,
   parentBounds,
+  swapState,
+  findNodeById,
 }: {
   node: FrameNode;
   scale: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
-  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string, sourceNodeId?: string) => void;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
   showOutlines: boolean;
   parentBounds?: Rectangle;
+  swapState?: Map<string, string>;
+  findNodeById?: (nodeId: string) => FigmaNode | null;
 }) {
   const { handleMouseEnter, handleMouseLeave, hasHover } = useHoverHandlers(node, onPrototypeNavigate);
   const style = useMemo(() => {
@@ -967,6 +1030,8 @@ function FrameRenderer({
           renderMode={node.layoutMode && node.layoutMode !== "NONE" ? "flow" : renderMode}
           showOutlines={showOutlines}
           parentBounds={node.absoluteBoundingBox}
+          swapState={swapState}
+          findNodeById={findNodeById}
         />
       ))}
     </div>
@@ -987,17 +1052,21 @@ function GroupRenderer({
   renderMode,
   showOutlines,
   parentBounds,
+  swapState,
+  findNodeById,
 }: {
   node: GroupNode;
   scale: number;
   selectedId?: string;
   onNodeClick?: (node: FigmaNode) => void;
-  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string, sourceNodeId?: string) => void;
   onClick: (e: React.MouseEvent) => void;
   wrapperStyle: CSSProperties;
   renderMode: "absolute" | "flow";
   showOutlines: boolean;
   parentBounds?: Rectangle;
+  swapState?: Map<string, string>;
+  findNodeById?: (nodeId: string) => FigmaNode | null;
 }) {
   const style = useMemo(() => {
     const s: CSSProperties = {
@@ -1060,6 +1129,8 @@ function GroupRenderer({
           renderMode={renderMode}
           showOutlines={showOutlines}
           parentBounds={node.absoluteBoundingBox}
+          swapState={swapState}
+          findNodeById={findNodeById}
         />
       ))}
     </div>
@@ -1640,6 +1711,8 @@ function BooleanRenderer({
   renderMode,
   showOutlines,
   parentBounds,
+  swapState,
+  findNodeById,
 }: {
   node: BooleanOperationNode;
   scale: number;
@@ -1650,6 +1723,8 @@ function BooleanRenderer({
   renderMode: "absolute" | "flow";
   showOutlines: boolean;
   parentBounds?: Rectangle;
+  swapState?: Map<string, string>;
+  findNodeById?: (nodeId: string) => FigmaNode | null;
 }) {
   // Boolean operations are complex - we'll render the result as an SVG if possible
   const style = useMemo(() => {
@@ -1769,6 +1844,8 @@ function BooleanRenderer({
           renderMode={renderMode}
           showOutlines={showOutlines}
           parentBounds={node.absoluteBoundingBox}
+          swapState={swapState}
+          findNodeById={findNodeById}
         />
       ))}
     </div>

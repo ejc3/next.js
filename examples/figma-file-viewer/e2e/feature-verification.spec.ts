@@ -283,7 +283,7 @@ Generated: ${timestamp}
 - [x] Drop shadow
 - [x] Inner shadow
 - [x] Layer blur
-- [ ] Background blur (limited)
+- [x] Background blur (with vendor prefixes)
 - [x] Multiple effects stacking
 - [x] Shadow spread
 
@@ -334,9 +334,9 @@ Generated: ${timestamp}
 - [x] External URL links
 - [x] Transition animations (dissolve, slide, move, push)
 - [x] Prototype preview mode with device frame
-- [ ] OVERLAY navigation
-- [ ] SWAP component interactions
-- [ ] AFTER_TIMEOUT triggers
+- [x] OVERLAY navigation (modal overlays)
+- [x] SWAP component interactions
+- [x] AFTER_TIMEOUT triggers
 
 `;
 

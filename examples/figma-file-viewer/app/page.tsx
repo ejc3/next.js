@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo, useEffect, useRef } from "react";
 import { FigmaParser, createParser } from "../lib/figma-parser";
 import type { FigmaFile, FigmaNode, ComponentTreeNode } from "../lib/figma-types";
 import { FigmaRenderer } from "../components/FigmaRenderer";
@@ -51,6 +51,15 @@ export default function FigmaViewerPage() {
     duration?: number;
     easing?: string;
   } | null>(null);
+  const [overlayState, setOverlayState] = useState<{
+    nodeId: string;
+    position?: { x: number; y: number };
+    transitionType?: string;
+    duration?: number;
+    easing?: string;
+  } | null>(null);
+  // SWAP state: maps original node IDs to their swapped component IDs
+  const [swapState, setSwapState] = useState<Map<string, string>>(new Map());
 
   // Parse the file content
   const handleFileLoad = useCallback(
@@ -149,6 +158,17 @@ export default function FigmaViewerPage() {
     return parser.findNodeById(prototypeFrameId);
   }, [prototypeFrameId, prototypeInfo, parser]);
 
+  // Get overlay frame
+  const overlayFrame = useMemo(() => {
+    if (!overlayState?.nodeId) return null;
+    return parser.findNodeById(overlayState.nodeId);
+  }, [overlayState?.nodeId, parser]);
+
+  // Close overlay handler
+  const handleCloseOverlay = useCallback(() => {
+    setOverlayState(null);
+  }, []);
+
   // Get selected node
   const selectedNode = useMemo(() => {
     if (!selectedNodeId || !figmaFile) return null;
@@ -166,9 +186,40 @@ export default function FigmaViewerPage() {
 
   // Handle prototype navigation
   const handlePrototypeNavigate = useCallback(
-    (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string) => {
+    (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string, sourceNodeId?: string) => {
       // In prototype mode, switch to the target frame with transition
       if (viewMode === "prototype") {
+        // Handle OVERLAY navigation
+        if (navigationType === "OVERLAY") {
+          const duration = transitionDuration ?? 300;
+          const easing = mapFigmaEasingToCSS(easingType);
+          setOverlayState({
+            nodeId: targetNodeId,
+            transitionType: transitionType || "DISSOLVE",
+            duration,
+            easing,
+          });
+          return;
+        }
+
+        // Handle SWAP navigation - swap a component instance in place
+        if (navigationType === "SWAP" && sourceNodeId) {
+          setSwapState((prev) => {
+            const newState = new Map(prev);
+            newState.set(sourceNodeId, targetNodeId);
+            return newState;
+          });
+          return;
+        }
+
+        // Handle CLOSE overlay
+        if (navigationType === "CLOSE" || navigationType === "BACK") {
+          if (overlayState) {
+            setOverlayState(null);
+            return;
+          }
+        }
+
         // Determine transition type and duration
         const transition = transitionType || "INSTANT";
         // Use provided duration or default (300ms for animated, 0 for instant)
@@ -228,8 +279,56 @@ export default function FigmaViewerPage() {
         }, 100);
       }
     },
-    [parser, viewMode]
+    [parser, viewMode, overlayState]
   );
+
+  // AFTER_TIMEOUT trigger refs
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Handle AFTER_TIMEOUT triggers when entering a frame
+  useEffect(() => {
+    // Clear any existing timeout
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+
+    // Only active in prototype mode
+    if (viewMode !== "prototype" || !currentPrototypeFrame) return;
+
+    // Check for AFTER_TIMEOUT interactions on the current frame
+    const interactions = (currentPrototypeFrame as any).prototypeInteractions;
+    if (!interactions) return;
+
+    const timeoutInteraction = interactions.find(
+      (i: any) => i.event?.interactionType === "AFTER_TIMEOUT"
+    );
+
+    if (timeoutInteraction && timeoutInteraction.actions?.[0]) {
+      const action = timeoutInteraction.actions[0];
+      const delay = timeoutInteraction.event?.timeout || 1000; // Default 1 second
+
+      if (action.transitionNodeID) {
+        timeoutRef.current = setTimeout(() => {
+          handlePrototypeNavigate(
+            action.transitionNodeID,
+            action.transitionType,
+            action.transitionDuration,
+            action.easingType,
+            action.navigationType
+          );
+        }, delay);
+      }
+    }
+
+    // Cleanup on unmount or frame change
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, [viewMode, currentPrototypeFrame, handlePrototypeNavigate]);
 
   // Reset viewer
   const handleReset = useCallback(() => {
@@ -515,9 +614,40 @@ export default function FigmaViewerPage() {
                             scale={1}
                             onNodeClick={handleNodeClick}
                             onPrototypeNavigate={handlePrototypeNavigate}
+                            swapState={swapState}
+                            findNodeById={parser.findNodeById.bind(parser)}
                           />
                         )}
                       </div>
+                      {/* Overlay */}
+                      {overlayState && overlayFrame && (
+                        <div
+                          className="prototype-overlay-backdrop"
+                          style={overlayBackdropStyle}
+                          onClick={handleCloseOverlay}
+                        >
+                          <div
+                            className={`prototype-overlay prototype-transition-${(overlayState.transitionType || "dissolve").toLowerCase()}`}
+                            style={{
+                              ...overlayContentStyle,
+                              transform: `scale(${scale})`,
+                              transformOrigin: "center",
+                              "--prototype-duration": overlayState.duration ? `${overlayState.duration}ms` : "300ms",
+                              "--prototype-easing": overlayState.easing || "ease-in-out",
+                            } as React.CSSProperties}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <FigmaRenderer
+                              node={overlayFrame}
+                              scale={1}
+                              onNodeClick={handleNodeClick}
+                              onPrototypeNavigate={handlePrototypeNavigate}
+                              swapState={swapState}
+                              findNodeById={parser.findNodeById.bind(parser)}
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
                     {/* Device info */}
                     {prototypeInfo?.device && (
@@ -1152,4 +1282,26 @@ const prototypeNavButtonStyle: React.CSSProperties = {
   fontSize: 12,
   cursor: "pointer",
   transition: "all 0.15s ease",
+};
+
+const overlayBackdropStyle: React.CSSProperties = {
+  position: "absolute",
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: "rgba(0, 0, 0, 0.5)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 100,
+  animation: "fadeIn 0.2s ease-out",
+};
+
+const overlayContentStyle: React.CSSProperties = {
+  position: "relative",
+  backgroundColor: "#fff",
+  borderRadius: 8,
+  boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.5)",
+  overflow: "hidden",
 };
