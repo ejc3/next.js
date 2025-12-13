@@ -169,6 +169,48 @@ function generatePolygonPath(width: number, height: number, sides: number = 6): 
 }
 
 /**
+ * Generate SVG path for a squircle (superellipse rounded rectangle)
+ * iOS-style continuous corner curvature
+ */
+function generateSquirclePath(
+  width: number,
+  height: number,
+  radius: number,
+  smoothing: number = 0.6
+): string {
+  // Clamp radius to half of smallest dimension
+  const maxRadius = Math.min(width, height) / 2;
+  const r = Math.min(radius, maxRadius);
+
+  if (r <= 0 || smoothing <= 0) {
+    return `M 0 0 L ${width} 0 L ${width} ${height} L 0 ${height} Z`;
+  }
+
+  // For squircle, extend curve further along edges
+  // The smoothing factor controls how much (1.0 to 1.8x radius)
+  const p = 1 + smoothing * 0.8;
+  const arcLength = Math.min(r * p, width / 2, height / 2);
+
+  // Modified kappa for rounder iOS-style curves
+  const k = 0.5522847498 * (1 + smoothing * 0.3);
+  const cp = r * k;
+
+  // Build path clockwise from top-left
+  return [
+    `M ${arcLength} 0`,
+    `L ${width - arcLength} 0`,
+    `C ${width - arcLength + cp} 0, ${width} ${arcLength - cp}, ${width} ${arcLength}`,
+    `L ${width} ${height - arcLength}`,
+    `C ${width} ${height - arcLength + cp}, ${width - arcLength + cp} ${height}, ${width - arcLength} ${height}`,
+    `L ${arcLength} ${height}`,
+    `C ${arcLength - cp} ${height}, 0 ${height - arcLength + cp}, 0 ${height - arcLength}`,
+    `L 0 ${arcLength}`,
+    `C 0 ${arcLength - cp}, ${arcLength - cp} 0, ${arcLength} 0`,
+    `Z`
+  ].join(" ");
+}
+
+/**
  * Generate SVG path for a star
  */
 function generateStarPath(
@@ -1028,6 +1070,51 @@ function VectorRenderer({
         renderMode={renderMode}
         parentBounds={parentBounds}
       />
+    );
+  }
+
+  // Render rectangles with cornerSmoothing as SVG squircle
+  if ((node.type === "RECTANGLE" || node.type === "ROUNDED_RECTANGLE") && node.cornerSmoothing && node.cornerSmoothing > 0) {
+    const width = node.absoluteBoundingBox?.width || node.size?.x || 100;
+    const height = node.absoluteBoundingBox?.height || node.size?.y || 100;
+    const radius = node.cornerRadius || 0;
+
+    const svgPath = generateSquirclePath(width, height, radius, node.cornerSmoothing);
+
+    const fillColor = node.fills && node.fills.length > 0
+      ? paintToCSS(node.fills[0]) || "none"
+      : "none";
+    const strokeColor = node.strokes && node.strokes.length > 0
+      ? paintToCSS(node.strokes[0]) || "none"
+      : "none";
+
+    return (
+      <div
+        className={`figma-vector figma-squircle`}
+        onClick={onClick}
+        style={{
+          ...style,
+          backgroundColor: "transparent",
+          background: "none",
+          borderRadius: 0,
+        }}
+        data-figma-id={node.id}
+        data-figma-name={node.name}
+      >
+        <svg
+          width={width * scale}
+          height={height * scale}
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ display: "block" }}
+        >
+          <path
+            d={svgPath}
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={node.strokeWeight || 0}
+          />
+        </svg>
+      </div>
     );
   }
 
