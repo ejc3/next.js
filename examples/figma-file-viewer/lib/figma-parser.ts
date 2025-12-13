@@ -310,98 +310,182 @@ function parseVectorNetworkBlob(blob: any): VectorNetwork | null {
   }
 }
 
-/**
- * Convert vector network to SVG path string
- * Uses segment tangents (dx, dy) to create bezier curves
- */
-function vectorNetworkToSVGPath(network: VectorNetwork): string {
-  if (!network.regions || network.regions.length === 0) {
-    // No regions - just connect all segments as lines
-    return segmentsToPath(network.vertices, network.segments);
-  }
-
-  const paths: string[] = [];
-
-  for (const region of network.regions) {
-    for (const loop of region.loops) {
-      const loopPath = loopToPath(network.vertices, network.segments, loop.segments);
-      if (loopPath) {
-        paths.push(loopPath);
-      }
-    }
-  }
-
-  return paths.join(" ");
+interface VectorPathResult {
+  path: string;
+  windingRule: string;
 }
 
 /**
- * Convert a loop (ordered segment indices) to SVG path
+ * Format number with precision, trimming trailing zeros
  */
-function loopToPath(
+function fmt(n: number, precision: number = 3): string {
+  const s = n.toFixed(precision);
+  return s.replace(/\.?0+$/, "");
+}
+
+/**
+ * Check if a number is essentially zero
+ */
+function isZero(n: number): boolean {
+  return Math.abs(n) < 1e-6;
+}
+
+/**
+ * Generate segment path command with proper direction handling
+ */
+function segmentToCommand(
+  vertices: VectorVertex[],
+  segment: VectorSegment,
+  direction: "forward" | "reverse",
+  currentPoint: { x: number; y: number },
+  precision: number
+): { cmd: string; nextPoint: { x: number; y: number } } {
+  const toIdx = direction === "forward" ? segment.endVertex : segment.startVertex;
+  const toVertex = vertices[toIdx];
+
+  // Get tangents based on direction
+  const dx1 = direction === "forward" ? segment.startDx : -segment.endDx;
+  const dy1 = direction === "forward" ? segment.startDy : -segment.endDy;
+  const dx2 = direction === "forward" ? segment.endDx : -segment.startDx;
+  const dy2 = direction === "forward" ? segment.endDy : -segment.startDy;
+
+  const nextPoint = { x: toVertex.x, y: toVertex.y };
+
+  // Check if this is a straight line (both tangents are zero)
+  const isLine = isZero(dx1) && isZero(dy1) && isZero(dx2) && isZero(dy2);
+
+  if (isLine) {
+    return {
+      cmd: `L ${fmt(nextPoint.x, precision)} ${fmt(nextPoint.y, precision)}`,
+      nextPoint,
+    };
+  }
+
+  // Cubic bezier: control points based on tangents from each endpoint
+  const cp1x = currentPoint.x + dx1;
+  const cp1y = currentPoint.y + dy1;
+  const cp2x = nextPoint.x + dx2;
+  const cp2y = nextPoint.y + dy2;
+
+  return {
+    cmd: `C ${fmt(cp1x, precision)} ${fmt(cp1y, precision)} ${fmt(cp2x, precision)} ${fmt(cp2y, precision)} ${fmt(nextPoint.x, precision)} ${fmt(nextPoint.y, precision)}`,
+    nextPoint,
+  };
+}
+
+/**
+ * Build a loop path by finding the connected chain of segments
+ * Tries both orientations for the first segment if needed
+ */
+function buildLoopPath(
   vertices: VectorVertex[],
   segments: VectorSegment[],
-  segmentIndices: number[]
+  segmentIndices: number[],
+  precision: number
 ): string | null {
   if (segmentIndices.length === 0) return null;
 
-  const parts: string[] = [];
-  let currentVertex = -1;
+  const tryBuild = (firstDir: "forward" | "reverse"): { d: string; startV: number; endV: number } | null => {
+    const firstIdx = Math.abs(segmentIndices[0]) - 1;
+    if (firstIdx < 0 || firstIdx >= segments.length) return null;
 
-  for (let i = 0; i < segmentIndices.length; i++) {
-    // Segment indices can be negative to indicate reverse direction
-    const rawIndex = segmentIndices[i];
-    const segmentIndex = Math.abs(rawIndex) - 1; // Convert from 1-based to 0-based
-    const reversed = rawIndex < 0;
+    const firstSeg = segments[firstIdx];
+    const startV = firstDir === "forward" ? firstSeg.startVertex : firstSeg.endVertex;
 
-    if (segmentIndex < 0 || segmentIndex >= segments.length) continue;
+    if (startV >= vertices.length) return null;
 
-    const segment = segments[segmentIndex];
-    const startIdx = reversed ? segment.endVertex : segment.startVertex;
-    const endIdx = reversed ? segment.startVertex : segment.endVertex;
+    let curV = startV;
+    let curPt = { x: vertices[curV].x, y: vertices[curV].y };
+    let d = `M ${fmt(curPt.x, precision)} ${fmt(curPt.y, precision)}`;
 
-    if (startIdx >= vertices.length || endIdx >= vertices.length) continue;
+    for (let k = 0; k < segmentIndices.length; k++) {
+      const rawIndex = segmentIndices[k];
+      const segIdx = Math.abs(rawIndex) - 1;
 
-    const startV = vertices[startIdx];
-    const endV = vertices[endIdx];
+      if (segIdx < 0 || segIdx >= segments.length) return null;
 
-    // First segment - move to start
-    if (i === 0) {
-      parts.push(`M ${startV.x} ${startV.y}`);
-      currentVertex = startIdx;
+      const seg = segments[segIdx];
+
+      // Determine direction based on which vertex connects to current position
+      let dir: "forward" | "reverse";
+      if (curV === seg.startVertex) {
+        dir = "forward";
+      } else if (curV === seg.endVertex) {
+        dir = "reverse";
+      } else {
+        // Disconnected - try using the explicit direction hint from negative index
+        dir = rawIndex < 0 ? "reverse" : "forward";
+        // Update current vertex to segment start
+        curV = dir === "forward" ? seg.startVertex : seg.endVertex;
+        if (curV >= vertices.length) return null;
+        curPt = { x: vertices[curV].x, y: vertices[curV].y };
+      }
+
+      const { cmd, nextPoint } = segmentToCommand(vertices, seg, dir, curPt, precision);
+      d += " " + cmd;
+
+      curPt = nextPoint;
+      curV = dir === "forward" ? seg.endVertex : seg.startVertex;
     }
 
-    // Get tangent handles
-    const dx1 = reversed ? -segment.endDx : segment.startDx;
-    const dy1 = reversed ? -segment.endDy : segment.startDy;
-    const dx2 = reversed ? -segment.startDx : segment.endDx;
-    const dy2 = reversed ? -segment.startDy : segment.endDy;
+    d += " Z";
+    return { d, startV, endV: curV };
+  };
 
-    // Check if this is a straight line (both tangents are zero)
-    const isLine = Math.abs(dx1) < 0.001 && Math.abs(dy1) < 0.001 &&
-                   Math.abs(dx2) < 0.001 && Math.abs(dy2) < 0.001;
+  // Try both orientations and prefer one that closes back to start
+  const fwd = tryBuild("forward");
+  const rev = tryBuild("reverse");
 
-    if (isLine) {
-      parts.push(`L ${endV.x} ${endV.y}`);
-    } else {
-      // Cubic bezier with control points based on tangents
-      const cp1x = startV.x + dx1;
-      const cp1y = startV.y + dy1;
-      const cp2x = endV.x + dx2;
-      const cp2y = endV.y + dy2;
-      parts.push(`C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${endV.x} ${endV.y}`);
-    }
+  const pick =
+    (fwd && fwd.startV === fwd.endV) ? fwd :
+    (rev && rev.startV === rev.endV) ? rev :
+    fwd ?? rev;
 
-    currentVertex = endIdx;
-  }
-
-  // Close the path
-  parts.push("Z");
-
-  return parts.join(" ");
+  return pick?.d ?? null;
 }
 
 /**
- * Fallback: convert segments without regions to path
+ * Convert vector network to array of SVG paths with winding rules
+ * Each region gets its own path with proper fill-rule
+ */
+function vectorNetworkToSVGPaths(network: VectorNetwork): VectorPathResult[] {
+  if (!network.regions || network.regions.length === 0) {
+    // No regions - just connect all segments as strokes
+    const path = segmentsToPath(network.vertices, network.segments);
+    return path ? [{ path, windingRule: "NONZERO" }] : [];
+  }
+
+  const results: VectorPathResult[] = [];
+  const precision = 3;
+
+  for (const region of network.regions) {
+    const loopPaths: string[] = [];
+
+    for (const loop of region.loops) {
+      const loopPath = buildLoopPath(
+        network.vertices,
+        network.segments,
+        loop.segments,
+        precision
+      );
+      if (loopPath) {
+        loopPaths.push(loopPath);
+      }
+    }
+
+    if (loopPaths.length > 0) {
+      results.push({
+        path: loopPaths.join(" "),
+        windingRule: region.windingRule === "ODD" ? "EVENODD" : region.windingRule,
+      });
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Fallback: convert segments without regions to path (for strokes on vector networks)
  */
 function segmentsToPath(vertices: VectorVertex[], segments: VectorSegment[]): string {
   const parts: string[] = [];
@@ -696,12 +780,12 @@ export class FigmaParser {
       if (blobIndex >= 0 && blobIndex < this.blobs.length) {
         const network = parseVectorNetworkBlob(this.blobs[blobIndex]);
         if (network) {
-          const pathData = vectorNetworkToSVGPath(network);
-          if (pathData) {
-            node.vectorPaths = [{
-              path: pathData,
-              windingRule: network.regions?.[0]?.windingRule || "NONZERO",
-            }];
+          const paths = vectorNetworkToSVGPaths(network);
+          if (paths.length > 0) {
+            node.vectorPaths = paths.map((p) => ({
+              path: p.path,
+              windingRule: p.windingRule as "EVENODD" | "NONZERO",
+            }));
           }
         }
       }

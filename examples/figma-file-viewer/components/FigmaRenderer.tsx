@@ -56,6 +56,19 @@ function applyBlendMode(s: CSSProperties, node: { blendMode?: string }): void {
   const blendMode = blendModeToCSS(node.blendMode);
   if (blendMode) {
     s.mixBlendMode = blendMode as any;
+    // Create stacking context for proper blend mode isolation
+    s.isolation = "isolate";
+  }
+}
+
+/**
+ * Apply isolation for proper opacity compositing on groups
+ */
+function applyIsolation(s: CSSProperties, node: { opacity?: number; blendMode?: string }): void {
+  // Group opacity requires isolation so children composite before opacity is applied
+  if ((node.opacity !== undefined && node.opacity < 1) ||
+      (node.blendMode && node.blendMode !== "PASS_THROUGH" && node.blendMode !== "NORMAL")) {
+    s.isolation = "isolate";
   }
 }
 
@@ -531,6 +544,9 @@ function FrameRenderer({
     // Blend mode
     applyBlendMode(s, node);
 
+    // Isolation for proper group compositing
+    applyIsolation(s, node);
+
     return s;
   }, [node, scale, wrapperStyle, renderMode]);
 
@@ -608,6 +624,9 @@ function GroupRenderer({
 
     // Blend mode
     applyBlendMode(s, node);
+
+    // Isolation for proper group compositing
+    applyIsolation(s, node);
 
     return s;
   }, [node, scale, wrapperStyle, renderMode]);
