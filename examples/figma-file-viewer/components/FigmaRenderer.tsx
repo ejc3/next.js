@@ -171,6 +171,28 @@ function getStrokeVectorEffect(node: {
 }
 
 /**
+ * Check if a node has prototype interactions
+ */
+function hasPrototypeInteractions(node: { prototypeInteractions?: any[] }): boolean {
+  return Boolean(node.prototypeInteractions && node.prototypeInteractions.length > 0);
+}
+
+/**
+ * Apply prototype interaction indicator styling
+ * Adds a subtle visual indicator for interactive elements
+ */
+function applyPrototypeIndicator(
+  s: CSSProperties,
+  node: { prototypeInteractions?: any[] },
+  showIndicator: boolean = true
+): void {
+  if (!showIndicator || !hasPrototypeInteractions(node)) return;
+
+  // Add cursor pointer to indicate interactivity
+  s.cursor = "pointer";
+}
+
+/**
  * Apply transform matrix from Figma's relativeTransform
  * relativeTransform is a 2x3 matrix: [[m00, m01, m02], [m10, m11, m12]]
  * CSS matrix() is: matrix(m00, m10, m01, m11, m02, m12)
@@ -773,8 +795,14 @@ function FrameRenderer({
     // Isolation for proper group compositing
     applyIsolation(s, node);
 
+    // Prototype interaction indicator (cursor pointer for interactive elements)
+    applyPrototypeIndicator(s, node);
+
     return s;
   }, [node, scale, wrapperStyle, renderMode, parentBounds]);
+
+  // Add data attribute for prototype interactions
+  const hasInteractions = hasPrototypeInteractions(node);
 
   return (
     <div
@@ -783,6 +811,7 @@ function FrameRenderer({
       style={style}
       data-figma-id={node.id}
       data-figma-name={node.name}
+      data-has-prototype={hasInteractions || undefined}
     >
       {node.children?.map((child, index) => (
         <FigmaRenderer
@@ -1044,8 +1073,13 @@ function TextRenderer({
     // Blend mode
     applyBlendMode(s, node);
 
+    // Prototype interaction indicator
+    applyPrototypeIndicator(s, node);
+
     return s;
   }, [node, scale, wrapperStyle, renderMode, parentBounds]);
+
+  const hasInteractions = hasPrototypeInteractions(node);
 
   return (
     <span
@@ -1054,6 +1088,7 @@ function TextRenderer({
       style={style}
       data-figma-id={node.id}
       data-figma-name={node.name}
+      data-has-prototype={hasInteractions || undefined}
     >
       {node.characters}
     </span>

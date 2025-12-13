@@ -180,7 +180,7 @@ import { ComponentTree, TreeStats, TextContentList } from "./components/Componen
 - **Images**: Image fills require the actual image data which isn't included in JSON exports
 - **Fonts**: Custom fonts may not render correctly if not available locally
 - **Complex Vectors**: Some complex vector paths may not render perfectly
-- **Prototypes**: Interactive prototypes are not supported
+- **Prototypes**: Prototype interactions are parsed and indicated visually (⚡ icon on hover), but full interactive navigation is not yet implemented
 - **Plugins**: Plugin data is preserved but not interpreted
 
 ## Learn More

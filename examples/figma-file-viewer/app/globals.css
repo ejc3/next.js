@@ -139,6 +139,33 @@ select:focus-visible {
   }
 }
 
+/* Prototype interaction indicators */
+[data-has-prototype="true"] {
+  cursor: pointer !important;
+  position: relative;
+}
+
+[data-has-prototype="true"]::after {
+  content: "⚡";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  background: rgba(99, 102, 241, 0.9);
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 1000;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+[data-has-prototype="true"]:hover::after {
+  opacity: 1;
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
   .side-panel {

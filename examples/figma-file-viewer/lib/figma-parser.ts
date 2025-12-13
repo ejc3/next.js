@@ -993,6 +993,35 @@ export class FigmaParser {
       node.effectsIndependent = change.effectsIndependent;
     }
 
+    // Handle prototype interactions (click, hover, drag, etc.)
+    if (change.prototypeInteractions && change.prototypeInteractions.length > 0) {
+      node.prototypeInteractions = change.prototypeInteractions
+        .filter((interaction: any) => !interaction.isDeleted)
+        .map((interaction: any) => ({
+          id: interaction.id
+            ? `${interaction.id.sessionID}:${interaction.id.localID}`
+            : undefined,
+          event: {
+            interactionType: interaction.event?.interactionType || "ON_CLICK",
+            delay: interaction.event?.delay,
+            keyCode: interaction.event?.keyCode,
+          },
+          actions: (interaction.actions || []).map((action: any) => ({
+            transitionNodeID: action.transitionNodeID
+              ? `${action.transitionNodeID.sessionID}:${action.transitionNodeID.localID}`
+              : undefined,
+            transitionType: action.transitionType,
+            transitionDuration: action.transitionDuration,
+            easingType: action.easingType,
+            easingFunction: action.easingFunction,
+            connectionType: action.connectionType,
+            navigationType: action.navigationType,
+            transitionPreserveScroll: action.transitionPreserveScroll,
+            url: action.url,
+          })),
+        }));
+    }
+
     // Handle star/polygon properties
     if (change.type === "STAR" || change.type === "REGULAR_POLYGON") {
       if (change.count !== undefined) {

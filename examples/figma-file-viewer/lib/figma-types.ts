@@ -315,6 +315,8 @@ export interface SceneNode extends BaseNode {
   // Scale stroke/effects independently from node scaling
   strokesIndependent?: boolean;
   effectsIndependent?: boolean;
+  // Prototype interactions (click, hover, drag, etc.)
+  prototypeInteractions?: PrototypeInteraction[];
 }
 
 // Geometry Mixin
@@ -406,6 +408,77 @@ export interface PrototypeDevice {
   size?: Vector;
   presetIdentifier?: string;
   rotation: "NONE" | "CCW_90";
+}
+
+// Prototype Interactions
+export type InteractionType =
+  | "ON_CLICK"
+  | "ON_DRAG"
+  | "DRAG"
+  | "ON_HOVER"
+  | "MOUSE_ENTER"
+  | "MOUSE_LEAVE"
+  | "MOUSE_UP"
+  | "MOUSE_DOWN"
+  | "ON_PRESS"
+  | "AFTER_TIMEOUT"
+  | "ON_KEY_DOWN";
+
+export type TransitionType =
+  | "INSTANT"
+  | "DISSOLVE"
+  | "SMART_ANIMATE"
+  | "MOVE_IN"
+  | "MOVE_OUT"
+  | "PUSH"
+  | "SLIDE_IN"
+  | "SLIDE_OUT";
+
+export type EasingType =
+  | "EASE_IN"
+  | "EASE_OUT"
+  | "EASE_IN_AND_OUT"
+  | "LINEAR"
+  | "EASE_IN_BACK"
+  | "EASE_OUT_BACK"
+  | "EASE_IN_AND_OUT_BACK"
+  | "CUSTOM_CUBIC_BEZIER"
+  | "GENTLE"
+  | "QUICK"
+  | "BOUNCY"
+  | "SLOW"
+  | "CUSTOM_SPRING"
+  | "OUT_CUBIC"
+  | "IN_CUBIC";
+
+export type NavigationType =
+  | "NAVIGATE"
+  | "SWAP"
+  | "OVERLAY"
+  | "SCROLL_TO"
+  | "CHANGE_TO";
+
+export interface PrototypeAction {
+  transitionNodeID?: string;
+  transitionType?: TransitionType;
+  transitionDuration?: number;
+  easingType?: EasingType;
+  easingFunction?: number[];
+  connectionType?: "INTERNAL_NODE" | "EXTERNAL_URL";
+  navigationType?: NavigationType;
+  transitionPreserveScroll?: boolean;
+  url?: string;
+}
+
+export interface PrototypeInteraction {
+  id?: string;
+  event: {
+    interactionType: InteractionType;
+    delay?: number;
+    keyCode?: number;
+  };
+  actions: PrototypeAction[];
+  isDeleted?: boolean;
 }
 
 // Frame Node
