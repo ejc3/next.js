@@ -312,6 +312,9 @@ export interface SceneNode extends BaseNode {
   maxHeight?: number;
   isMask?: boolean;
   maskType?: "ALPHA" | "LUMINANCE";
+  // Scale stroke/effects independently from node scaling
+  strokesIndependent?: boolean;
+  effectsIndependent?: boolean;
 }
 
 // Geometry Mixin

@@ -73,6 +73,76 @@ function applyIsolation(s: CSSProperties, node: { opacity?: number; blendMode?: 
 }
 
 /**
+ * Apply effects with optional independent scaling
+ * @param effectsIndependent - If true, effect sizes don't scale with the node
+ */
+function applyEffects(
+  s: CSSProperties,
+  effects: Effect[] | undefined,
+  scale: number,
+  effectsIndependent?: boolean
+): void {
+  if (!effects || effects.length === 0) return;
+
+  // If effectsIndependent is true, don't scale effect parameters
+  const effectScale = effectsIndependent ? 1 : scale;
+
+  const shadows: string[] = [];
+  const filters: string[] = [];
+  const backdropFilters: string[] = [];
+
+  for (const effect of effects) {
+    if (effect.visible === false) continue;
+
+    switch (effect.type) {
+      case "DROP_SHADOW":
+        if (effect.color && effect.offset) {
+          const color = colorToRgba(effect.color);
+          const offsetX = effect.offset.x * effectScale;
+          const offsetY = effect.offset.y * effectScale;
+          const radius = effect.radius * effectScale;
+          const spread = (effect.spread || 0) * effectScale;
+          shadows.push(`${offsetX}px ${offsetY}px ${radius}px ${spread}px ${color}`);
+        }
+        break;
+
+      case "INNER_SHADOW":
+        if (effect.color && effect.offset) {
+          const color = colorToRgba(effect.color);
+          const offsetX = effect.offset.x * effectScale;
+          const offsetY = effect.offset.y * effectScale;
+          const radius = effect.radius * effectScale;
+          const spread = (effect.spread || 0) * effectScale;
+          shadows.push(`inset ${offsetX}px ${offsetY}px ${radius}px ${spread}px ${color}`);
+        }
+        break;
+
+      case "LAYER_BLUR":
+        filters.push(`blur(${effect.radius * effectScale}px)`);
+        break;
+
+      case "BACKGROUND_BLUR":
+        backdropFilters.push(`blur(${effect.radius * effectScale}px)`);
+        break;
+    }
+  }
+
+  if (shadows.length > 0) s.boxShadow = shadows.join(", ");
+  if (filters.length > 0) s.filter = filters.join(" ");
+  if (backdropFilters.length > 0) s.backdropFilter = backdropFilters.join(" ");
+}
+
+/**
+ * Generate CSS for luminance mask (grayscale filter that uses brightness as alpha)
+ * This is used when maskType is "LUMINANCE" instead of "ALPHA"
+ */
+function getLuminanceMaskFilter(): string {
+  // CSS filter to convert to grayscale for luminance masking
+  // White areas become fully visible, black areas become transparent
+  return "grayscale(100%)";
+}
+
+/**
  * Apply transform matrix from Figma's relativeTransform
  * relativeTransform is a 2x3 matrix: [[m00, m01, m02], [m10, m11, m12]]
  * CSS matrix() is: matrix(m00, m10, m01, m11, m02, m12)
@@ -90,6 +160,7 @@ function applyTransform(s: CSSProperties, node: { relativeTransform?: number[][]
 
 /**
  * Apply stroke properties including dashed strokes
+ * @param strokesIndependent - If true, stroke width doesn't scale with the node
  */
 function applyStroke(
   s: CSSProperties,
@@ -100,6 +171,7 @@ function applyStroke(
     strokeCap?: string;
     strokeJoin?: string;
     dashPattern?: number[];
+    strokesIndependent?: boolean;
   },
   scale: number
 ): void {
@@ -108,7 +180,9 @@ function applyStroke(
   const strokeColor = paintToCSS(node.strokes[0]);
   if (!strokeColor) return;
 
-  const weight = node.strokeWeight * scale;
+  // If strokesIndependent is true, don't scale the stroke weight
+  const strokeScale = node.strokesIndependent ? 1 : scale;
+  const weight = node.strokeWeight * strokeScale;
 
   // Handle stroke alignment (INSIDE, CENTER, OUTSIDE)
   // CSS borders are always inside for box-sizing: border-box
@@ -641,13 +715,8 @@ function FrameRenderer({
     // Stroke (border) with full properties
     applyStroke(s, node, scale);
 
-    // Effects (shadows, blur)
-    if (node.effects && node.effects.length > 0) {
-      const effects = effectsToCSS(node.effects);
-      if (effects.boxShadow) s.boxShadow = effects.boxShadow;
-      if (effects.filter) s.filter = effects.filter;
-      if (effects.backdropFilter) s.backdropFilter = effects.backdropFilter;
-    }
+    // Effects (shadows, blur) with independent scaling support
+    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
 
     // Opacity
     if (node.opacity !== undefined && node.opacity < 1) {
@@ -657,6 +726,14 @@ function FrameRenderer({
     // Clip content
     if (node.clipsContent) {
       s.overflow = "hidden";
+    }
+
+    // Handle mask properties
+    if ((node as any).isMask) {
+      // For luminance masks, add grayscale filter
+      if ((node as any).maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
     }
 
     // Transform (rotation/skew)
@@ -739,11 +816,14 @@ function GroupRenderer({
       s.opacity = node.opacity;
     }
 
-    if (node.effects && node.effects.length > 0) {
-      const effects = effectsToCSS(node.effects);
-      if (effects.boxShadow) s.boxShadow = effects.boxShadow;
-      if (effects.filter) s.filter = effects.filter;
-      if (effects.backdropFilter) s.backdropFilter = effects.backdropFilter;
+    // Effects with independent scaling support
+    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
+
+    // Handle mask properties for groups
+    if ((node as any).isMask) {
+      if ((node as any).maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
     }
 
     // Transform (rotation/skew)
@@ -1041,11 +1121,14 @@ function VectorRenderer({
     // Transform (rotation/skew)
     applyTransform(s, node, scale);
 
-    // Effects
-    if (node.effects && node.effects.length > 0) {
-      const effects = effectsToCSS(node.effects);
-      if (effects.boxShadow) s.boxShadow = effects.boxShadow;
-      if (effects.filter) s.filter = effects.filter;
+    // Effects with independent scaling support
+    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
+
+    // Handle mask properties for vectors
+    if ((node as any).isMask) {
+      if ((node as any).maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
     }
 
     // Opacity
@@ -1221,10 +1304,14 @@ function SVGVectorRenderer({
       s.opacity = node.opacity;
     }
 
-    // Effects
-    if (node.effects && node.effects.length > 0) {
-      const effects = effectsToCSS(node.effects);
-      if (effects.filter) s.filter = effects.filter;
+    // Effects with independent scaling support
+    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
+
+    // Handle mask properties for SVG vectors
+    if ((node as any).isMask) {
+      if ((node as any).maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
     }
 
     // Blend mode
@@ -1377,12 +1464,14 @@ function BooleanRenderer({
       s.opacity = node.opacity;
     }
 
-    // Effects
-    if (node.effects && node.effects.length > 0) {
-      const effects = effectsToCSS(node.effects);
-      if (effects.boxShadow) s.boxShadow = effects.boxShadow;
-      if (effects.filter) s.filter = effects.filter;
-      if (effects.backdropFilter) s.backdropFilter = effects.backdropFilter;
+    // Effects with independent scaling support
+    applyEffects(s, node.effects, scale, (node as any).effectsIndependent);
+
+    // Handle mask properties for boolean operations
+    if ((node as any).isMask) {
+      if ((node as any).maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
     }
 
     // Blend mode

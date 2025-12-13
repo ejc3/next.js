@@ -982,6 +982,25 @@ export class FigmaParser {
       };
     }
 
+    // Handle scale stroke/effects independently toggles
+    // These control whether strokes/effects scale with the node or stay fixed
+    if (change.strokesIndependent !== undefined) {
+      node.strokesIndependent = change.strokesIndependent;
+    }
+    if (change.effectsIndependent !== undefined) {
+      node.effectsIndependent = change.effectsIndependent;
+    }
+
+    // Handle star/polygon properties
+    if (change.type === "STAR" || change.type === "REGULAR_POLYGON") {
+      if (change.count !== undefined) {
+        (node as any).pointCount = change.count;
+      }
+      if (change.starInnerScale !== undefined) {
+        (node as any).starInnerScale = change.starInnerScale;
+      }
+    }
+
     return node as FigmaNode;
   }
 
