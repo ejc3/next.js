@@ -849,6 +849,18 @@ export class FigmaParser {
       node.cornerSmoothing = change.cornerSmoothing;
     }
 
+    // Handle frame clipping (frameMaskDisabled is inverse of clipsContent)
+    // By default, frames clip content unless frameMaskDisabled is true
+    if (change.type === "FRAME" || change.type === "COMPONENT" || change.type === "INSTANCE") {
+      node.clipsContent = change.frameMaskDisabled !== true;
+    }
+
+    // Handle mask properties
+    if (change.mask === true) {
+      node.isMask = true;
+      node.maskType = change.maskType || "ALPHA";
+    }
+
     return node as FigmaNode;
   }
 

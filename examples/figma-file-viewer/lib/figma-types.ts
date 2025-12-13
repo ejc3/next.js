@@ -293,6 +293,8 @@ export interface SceneNode extends BaseNode {
   maxWidth?: number;
   minHeight?: number;
   maxHeight?: number;
+  isMask?: boolean;
+  maskType?: "ALPHA" | "LUMINANCE";
 }
 
 // Geometry Mixin
