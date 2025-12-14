@@ -1617,7 +1617,7 @@ const VectorRenderer = React.memo(function VectorRenderer({
       data-figma-name={node.name}
     />
   );
-}
+});
 
 /**
  * SVG Vector Renderer for complex paths
@@ -1762,7 +1762,7 @@ function SVGVectorRenderer({
       </svg>
     </div>
   );
-});
+}
 
 /**
  * Boolean Operation Renderer
