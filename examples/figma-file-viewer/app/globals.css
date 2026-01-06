@@ -1,0 +1,372 @@
+/* CSS Custom Properties (Design Tokens) */
+:root {
+  /* Colors - Light Mode */
+  --color-bg-primary: #ffffff;
+  --color-bg-secondary: #f9fafb;
+  --color-bg-tertiary: #f3f4f6;
+  --color-bg-hover: #e5e7eb;
+  --color-bg-selected: #e0e7ff;
+  --color-bg-highlight: #fef3c7;
+
+  --color-text-primary: #1f2937;
+  --color-text-secondary: #374151;
+  --color-text-tertiary: #6b7280;
+  --color-text-muted: #9ca3af;
+
+  --color-border: #e5e7eb;
+  --color-border-hover: #d1d5db;
+
+  --color-accent: #4f46e5;
+  --color-accent-hover: #4338ca;
+  --color-accent-bg: #c7d2fe;
+
+  --color-error: #ef4444;
+  --color-error-bg: #fef2f2;
+
+  --color-scrollbar-track: #f1f1f1;
+  --color-scrollbar-thumb: #c1c1c1;
+  --color-scrollbar-thumb-hover: #a1a1a1;
+
+  --color-canvas-bg: #e5e7eb;
+  --color-canvas-pattern: #d1d5db;
+
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+/* Dark Mode */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-bg-primary: #1f2937;
+    --color-bg-secondary: #111827;
+    --color-bg-tertiary: #374151;
+    --color-bg-hover: #4b5563;
+    --color-bg-selected: #312e81;
+    --color-bg-highlight: #78350f;
+
+    --color-text-primary: #f9fafb;
+    --color-text-secondary: #e5e7eb;
+    --color-text-tertiary: #9ca3af;
+    --color-text-muted: #6b7280;
+
+    --color-border: #374151;
+    --color-border-hover: #4b5563;
+
+    --color-accent: #818cf8;
+    --color-accent-hover: #6366f1;
+    --color-accent-bg: #3730a3;
+
+    --color-error: #f87171;
+    --color-error-bg: #450a0a;
+
+    --color-scrollbar-track: #374151;
+    --color-scrollbar-thumb: #6b7280;
+    --color-scrollbar-thumb-hover: #9ca3af;
+
+    --color-canvas-bg: #111827;
+    --color-canvas-pattern: #1f2937;
+
+    --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+    --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4);
+  }
+}
+
+/* Reset and base styles */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, "Noto Sans", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  background-color: var(--color-bg-primary);
+  color: var(--color-text-primary);
+}
+
+/* Animations */
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Figma Renderer Styles */
+.figma-document {
+  position: relative;
+}
+
+.figma-canvas {
+  animation: fadeIn 0.3s ease;
+}
+
+.figma-frame,
+.figma-group,
+.figma-component,
+.figma-instance {
+  transition: outline 0.15s ease;
+  will-change: outline;
+}
+
+.figma-frame:hover,
+.figma-group:hover {
+  z-index: 1;
+}
+
+.figma-text {
+  display: block;
+}
+
+.figma-vector,
+.figma-rectangle,
+.figma-ellipse,
+.figma-line {
+  transition: transform 0.2s ease;
+  will-change: transform;
+}
+
+/* Component Tree Styles */
+.component-tree {
+  user-select: none;
+  background-color: var(--color-bg-primary);
+  /* Firefox scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+}
+
+/* Note: !important needed to override inline styles from JS for hover states */
+.tree-node-row:hover {
+  background-color: var(--color-bg-hover) !important;
+}
+
+/* Scrollbar Styles - Webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-scrollbar-track);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-scrollbar-thumb);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-scrollbar-thumb-hover);
+}
+
+/* Firefox scrollbar global */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-scrollbar-thumb) var(--color-scrollbar-track);
+}
+
+/* Focus styles */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
+
+/* File Upload hover effect */
+/* Note: !important needed to override inline styles from component */
+.file-uploader:hover {
+  border-color: var(--color-border-hover) !important;
+  background-color: var(--color-bg-tertiary) !important;
+}
+
+/* Selection highlight */
+::selection {
+  background-color: var(--color-accent-bg);
+  color: var(--color-text-primary);
+}
+
+/* Canvas background pattern */
+.canvas-background {
+  background-color: var(--color-canvas-bg);
+  background-image: linear-gradient(45deg, var(--color-canvas-pattern) 25%, transparent 25%),
+    linear-gradient(-45deg, var(--color-canvas-pattern) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, var(--color-canvas-pattern) 75%),
+    linear-gradient(-45deg, transparent 75%, var(--color-canvas-pattern) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+}
+
+/* Print styles */
+@media print {
+  .figma-canvas {
+    page-break-inside: avoid;
+  }
+
+  header,
+  .toolbar {
+    display: none !important;
+  }
+}
+
+/* Prototype interaction indicators */
+[data-has-prototype="true"] {
+  cursor: pointer !important;
+  position: relative;
+}
+
+[data-has-prototype="true"]::after {
+  content: "⚡";
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  font-size: 10px;
+  background: rgba(99, 102, 241, 0.9);
+  color: white;
+  padding: 2px 4px;
+  border-radius: 3px;
+  pointer-events: none;
+  z-index: 1000;
+  line-height: 1;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+[data-has-prototype="true"]:hover::after {
+  opacity: 1;
+}
+
+/* Prototype navigation target highlight */
+@keyframes prototypeHighlight {
+  0% {
+    outline: 4px solid rgba(99, 102, 241, 0);
+    outline-offset: 0px;
+  }
+  20% {
+    outline: 4px solid rgba(99, 102, 241, 0.8);
+    outline-offset: 4px;
+  }
+  100% {
+    outline: 4px solid rgba(99, 102, 241, 0);
+    outline-offset: 8px;
+  }
+}
+
+.prototype-target-highlight {
+  animation: prototypeHighlight 1s ease-out forwards;
+}
+
+/* Prototype transition animations - use CSS custom properties for duration/easing */
+.prototype-transition {
+  --prototype-duration: 300ms;
+  --prototype-easing: ease-in-out;
+  transition: opacity var(--prototype-duration) var(--prototype-easing),
+              transform var(--prototype-duration) var(--prototype-easing);
+  will-change: opacity, transform;
+}
+
+/* Dissolve transition - fade in/out */
+@keyframes prototypeDissolve {
+  0% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.prototype-transition-dissolve {
+  animation: prototypeDissolve var(--prototype-duration, 300ms) var(--prototype-easing, ease-in-out);
+}
+
+/* Smart animate - similar to dissolve with subtle scale */
+@keyframes prototypeSmartAnimate {
+  0% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0; transform: scale(0.98); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+.prototype-transition-smart_animate {
+  animation: prototypeSmartAnimate var(--prototype-duration, 300ms) var(--prototype-easing, ease-in-out);
+}
+
+/* Slide in from right */
+@keyframes prototypeSlideIn {
+  0% { transform: translateX(100%); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+.prototype-transition-slide_in {
+  animation: prototypeSlideIn var(--prototype-duration, 300ms) var(--prototype-easing, ease-out);
+}
+
+/* Slide out to left */
+@keyframes prototypeSlideOut {
+  0% { transform: translateX(0); opacity: 1; }
+  100% { transform: translateX(-100%); opacity: 0; }
+}
+
+.prototype-transition-slide_out {
+  animation: prototypeSlideOut var(--prototype-duration, 300ms) var(--prototype-easing, ease-in);
+}
+
+/* Move in from bottom */
+@keyframes prototypeMoveIn {
+  0% { transform: translateY(100%); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+.prototype-transition-move_in {
+  animation: prototypeMoveIn var(--prototype-duration, 300ms) var(--prototype-easing, ease-out);
+}
+
+/* Move out to top */
+@keyframes prototypeMoveOut {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-100%); opacity: 0; }
+}
+
+.prototype-transition-move_out {
+  animation: prototypeMoveOut var(--prototype-duration, 300ms) var(--prototype-easing, ease-in);
+}
+
+/* Push animation - combined with slide */
+@keyframes prototypePush {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(0); }
+}
+
+.prototype-transition-push {
+  animation: prototypePush var(--prototype-duration, 300ms) var(--prototype-easing, ease-out);
+}
+
+/* Instant - no animation */
+.prototype-transition-instant {
+  transition: none;
+  animation: none;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .side-panel {
+    width: 100% !important;
+    position: fixed !important;
+    z-index: 100;
+  }
+}

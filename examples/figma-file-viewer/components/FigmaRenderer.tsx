@@ -1,0 +1,1921 @@
+"use client";
+
+import React, { CSSProperties, useCallback, useMemo } from "react";
+import type {
+  FigmaNode,
+  FrameNode,
+  TextNode,
+  VectorNode,
+  GroupNode,
+  Paint,
+  Effect,
+  TypeStyle,
+  CanvasNode,
+  BooleanOperationNode,
+  Rectangle,
+  PrototypeInteraction,
+  SceneNode,
+  GeometryMixin,
+} from "../lib/figma-types";
+
+// CSS type for mix-blend-mode (subset of valid values)
+type CSSMixBlendMode =
+  | "normal"
+  | "multiply"
+  | "screen"
+  | "overlay"
+  | "darken"
+  | "lighten"
+  | "color-dodge"
+  | "color-burn"
+  | "hard-light"
+  | "soft-light"
+  | "difference"
+  | "exclusion"
+  | "hue"
+  | "saturation"
+  | "color"
+  | "luminosity";
+
+// Type for nodes with stroke dash properties
+interface StrokeDashNode {
+  dashPattern?: number[];
+  miterLimit?: number;
+}
+
+// Type for nodes that can have prototype interactions
+interface InteractableNode {
+  prototypeInteractions?: PrototypeInteraction[];
+}
+
+// Extended CSS properties with webkit vendor prefixes
+interface ExtendedCSSProperties extends CSSProperties {
+  WebkitBackdropFilter?: string;
+  WebkitLineClamp?: number;
+  WebkitBoxOrient?: "horizontal" | "vertical";
+}
+import {
+  colorToRgba,
+  paintToCSS,
+  effectsToCSS,
+} from "../lib/figma-parser";
+
+/**
+ * Convert Figma blend mode to CSS mix-blend-mode
+ */
+function blendModeToCSS(blendMode: string | undefined): string | undefined {
+  if (!blendMode || blendMode === "PASS_THROUGH" || blendMode === "NORMAL") {
+    return undefined;
+  }
+  const mapping: Record<string, string> = {
+    "DARKEN": "darken",
+    "MULTIPLY": "multiply",
+    "LINEAR_BURN": "color-burn", // Approximate
+    "COLOR_BURN": "color-burn",
+    "LIGHTEN": "lighten",
+    "SCREEN": "screen",
+    "LINEAR_DODGE": "color-dodge", // Approximate
+    "COLOR_DODGE": "color-dodge",
+    "OVERLAY": "overlay",
+    "SOFT_LIGHT": "soft-light",
+    "HARD_LIGHT": "hard-light",
+    "DIFFERENCE": "difference",
+    "EXCLUSION": "exclusion",
+    "HUE": "hue",
+    "SATURATION": "saturation",
+    "COLOR": "color",
+    "LUMINOSITY": "luminosity",
+  };
+  return mapping[blendMode];
+}
+
+/**
+ * Apply blend mode to style object
+ */
+function applyBlendMode(s: CSSProperties, node: { blendMode?: string }): void {
+  const blendMode = blendModeToCSS(node.blendMode);
+  if (blendMode) {
+    s.mixBlendMode = blendMode as CSSMixBlendMode;
+    // Create stacking context for proper blend mode isolation
+    s.isolation = "isolate";
+  }
+}
+
+/**
+ * Apply isolation for proper opacity compositing on groups
+ */
+function applyIsolation(s: CSSProperties, node: { opacity?: number; blendMode?: string }): void {
+  // Group opacity requires isolation so children composite before opacity is applied
+  if ((node.opacity !== undefined && node.opacity < 1) ||
+      (node.blendMode && node.blendMode !== "PASS_THROUGH" && node.blendMode !== "NORMAL")) {
+    s.isolation = "isolate";
+  }
+}
+
+/**
+ * Apply effects with optional independent scaling
+ * @param effectsIndependent - If true, effect sizes don't scale with the node
+ */
+function applyEffects(
+  s: ExtendedCSSProperties,
+  effects: Effect[] | undefined,
+  scale: number,
+  effectsIndependent?: boolean
+): void {
+  if (!effects || effects.length === 0) return;
+
+  // If effectsIndependent is true, don't scale effect parameters
+  const effectScale = effectsIndependent ? 1 : scale;
+
+  const shadows: string[] = [];
+  const filters: string[] = [];
+  const backdropFilters: string[] = [];
+
+  for (const effect of effects) {
+    if (effect.visible === false) continue;
+
+    switch (effect.type) {
+      case "DROP_SHADOW":
+        if (effect.color && effect.offset) {
+          const color = colorToRgba(effect.color);
+          const offsetX = effect.offset.x * effectScale;
+          const offsetY = effect.offset.y * effectScale;
+          const radius = effect.radius * effectScale;
+          const spread = (effect.spread || 0) * effectScale;
+          shadows.push(`${offsetX}px ${offsetY}px ${radius}px ${spread}px ${color}`);
+        }
+        break;
+
+      case "INNER_SHADOW":
+        if (effect.color && effect.offset) {
+          const color = colorToRgba(effect.color);
+          const offsetX = effect.offset.x * effectScale;
+          const offsetY = effect.offset.y * effectScale;
+          const radius = effect.radius * effectScale;
+          const spread = (effect.spread || 0) * effectScale;
+          shadows.push(`inset ${offsetX}px ${offsetY}px ${radius}px ${spread}px ${color}`);
+        }
+        break;
+
+      case "LAYER_BLUR":
+        filters.push(`blur(${effect.radius * effectScale}px)`);
+        break;
+
+      case "BACKGROUND_BLUR":
+        backdropFilters.push(`blur(${effect.radius * effectScale}px)`);
+        break;
+    }
+  }
+
+  if (shadows.length > 0) s.boxShadow = shadows.join(", ");
+  if (filters.length > 0) s.filter = filters.join(" ");
+  if (backdropFilters.length > 0) {
+    const backdropValue = backdropFilters.join(" ");
+    s.backdropFilter = backdropValue;
+    // Add webkit prefix for Safari support
+    s.WebkitBackdropFilter = backdropValue;
+  }
+}
+
+/**
+ * Generate CSS for luminance mask (grayscale filter that uses brightness as alpha)
+ * This is used when maskType is "LUMINANCE" instead of "ALPHA"
+ */
+function getLuminanceMaskFilter(): string {
+  // CSS filter to convert to grayscale for luminance masking
+  // White areas become fully visible, black areas become transparent
+  return "grayscale(100%)";
+}
+
+/**
+ * Check if a node has a non-uniform transform (different X and Y scale)
+ * This affects how strokes should be rendered
+ */
+function hasNonUniformTransform(node: { relativeTransform?: number[][] }): boolean {
+  if (!node.relativeTransform) return false;
+  const [[m00, m01], [m10, m11]] = node.relativeTransform;
+  // Calculate scale factors from transform matrix
+  const scaleX = Math.sqrt(m00 * m00 + m10 * m10);
+  const scaleY = Math.sqrt(m01 * m01 + m11 * m11);
+  // Check if scales differ significantly (more than 1% difference)
+  return Math.abs(scaleX - scaleY) > 0.01 * Math.max(scaleX, scaleY);
+}
+
+/**
+ * Get the SVG vector-effect attribute for strokes
+ * Returns "non-scaling-stroke" for nodes with non-uniform transforms or independent strokes
+ */
+function getStrokeVectorEffect(node: {
+  relativeTransform?: number[][];
+  strokesIndependent?: boolean
+}): "non-scaling-stroke" | undefined {
+  if (node.strokesIndependent || hasNonUniformTransform(node)) {
+    return "non-scaling-stroke";
+  }
+  return undefined;
+}
+
+/**
+ * Get SVG stroke-dasharray from Figma dashPattern
+ */
+function getStrokeDashArray(node: StrokeDashNode): string | undefined {
+  if (!node.dashPattern || node.dashPattern.length === 0) return undefined;
+  return node.dashPattern.join(" ");
+}
+
+/**
+ * Get SVG stroke-miterlimit from Figma miterLimit
+ */
+function getStrokeMiterLimit(node: StrokeDashNode): number | undefined {
+  return node.miterLimit;
+}
+
+/**
+ * Check if a node has prototype interactions
+ */
+function hasPrototypeInteractions(node: InteractableNode): boolean {
+  return Boolean(node.prototypeInteractions && node.prototypeInteractions.length > 0);
+}
+
+/**
+ * Apply prototype interaction indicator styling
+ * Adds a subtle visual indicator for interactive elements
+ */
+function applyPrototypeIndicator(
+  s: CSSProperties,
+  node: InteractableNode,
+  showIndicator: boolean = true
+): void {
+  if (!showIndicator || !hasPrototypeInteractions(node)) return;
+
+  // Add cursor pointer to indicate interactivity
+  s.cursor = "pointer";
+}
+
+/**
+ * Apply transform matrix from Figma's relativeTransform
+ * relativeTransform is a 2x3 matrix: [[m00, m01, m02], [m10, m11, m12]]
+ * CSS matrix() is: matrix(m00, m10, m01, m11, m02, m12)
+ */
+function applyTransform(s: CSSProperties, node: { relativeTransform?: number[][] }, scale: number): void {
+  if (!node.relativeTransform) return;
+  const [[m00, m01, m02], [m10, m11, m12]] = node.relativeTransform;
+  // Apply CSS matrix transform (note the different parameter order)
+  // We only apply rotation/scale/skew, not translation (handled by position)
+  if (m00 !== 1 || m11 !== 1 || m01 !== 0 || m10 !== 0) {
+    s.transform = `matrix(${m00}, ${m10}, ${m01}, ${m11}, 0, 0)`;
+    s.transformOrigin = "top left";
+  }
+}
+
+/**
+ * Apply stroke properties including dashed strokes
+ * @param strokesIndependent - If true, stroke width doesn't scale with the node
+ */
+function applyStroke(
+  s: CSSProperties,
+  node: {
+    strokes?: Paint[];
+    strokeWeight?: number;
+    strokeAlign?: string;
+    strokeCap?: string;
+    strokeJoin?: string;
+    dashPattern?: number[];
+    strokesIndependent?: boolean;
+  },
+  scale: number
+): void {
+  if (!node.strokes || node.strokes.length === 0 || !node.strokeWeight) return;
+
+  const strokeColor = paintToCSS(node.strokes[0]);
+  if (!strokeColor) return;
+
+  // If strokesIndependent is true, don't scale the stroke weight
+  const strokeScale = node.strokesIndependent ? 1 : scale;
+  const weight = node.strokeWeight * strokeScale;
+
+  // Handle stroke alignment (INSIDE, CENTER, OUTSIDE)
+  // CSS borders are always inside for box-sizing: border-box
+  // For OUTSIDE strokes, we use outline instead
+  // For CENTER strokes (default), use border
+  if (node.strokeAlign === "OUTSIDE") {
+    s.outline = `${weight}px solid ${strokeColor}`;
+    s.outlineOffset = "0px";
+  } else {
+    s.border = `${weight}px solid ${strokeColor}`;
+    // For INSIDE alignment, we need to account for border in the size
+    if (node.strokeAlign === "INSIDE") {
+      s.boxSizing = "border-box";
+    }
+  }
+
+  // Handle dashed strokes (only works well with border, not outline)
+  if (node.dashPattern && node.dashPattern.length > 0 && node.strokeAlign !== "OUTSIDE") {
+    const dashArray = node.dashPattern.map(d => `${d * scale}px`).join(" ");
+    s.borderStyle = "dashed";
+    // Note: CSS doesn't support custom dash patterns directly
+    // borderStyle: dashed uses browser default
+  }
+}
+
+interface FigmaRendererProps {
+  node: FigmaNode;
+  scale?: number;
+  selectedId?: string;
+  onNodeClick?: (node: FigmaNode) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string, sourceNodeId?: string) => void;
+  renderMode?: "absolute" | "flow";
+  showOutlines?: boolean;
+  parentBounds?: Rectangle; // Parent's bounding box for relative positioning
+  swapState?: Map<string, string>; // Maps original node IDs to their swapped component IDs
+  findNodeById?: (nodeId: string) => FigmaNode | null; // Function to find nodes by ID for SWAP
+}
+
+/**
+ * Main Figma Renderer Component
+ * Renders Figma nodes as equivalent React components
+ */
+/**
+ * Validate and sanitize numeric input for SVG generation
+ */
+function sanitizeSVGNumber(value: number, fallback: number = 0, min: number = 0, max: number = 10000): number {
+  if (!Number.isFinite(value)) return fallback;
+  return Math.max(min, Math.min(max, value));
+}
+
+/**
+ * Generate SVG path for a regular polygon
+ */
+function generatePolygonPath(width: number, height: number, sides: number = 6): string {
+  // Validate inputs
+  const w = sanitizeSVGNumber(width, 100, 1, 10000);
+  const h = sanitizeSVGNumber(height, 100, 1, 10000);
+  const s = Math.round(sanitizeSVGNumber(sides, 6, 3, 100)); // At least 3 sides, max 100
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const radius = Math.min(w, h) / 2;
+  const angleOffset = -Math.PI / 2; // Start from top
+
+  const points: string[] = [];
+  for (let i = 0; i < s; i++) {
+    const angle = angleOffset + (2 * Math.PI * i) / s;
+    const x = cx + radius * Math.cos(angle);
+    const y = cy + radius * Math.sin(angle);
+    points.push(`${x.toFixed(3)},${y.toFixed(3)}`);
+  }
+
+  return `M ${points.join(" L ")} Z`;
+}
+
+/**
+ * Generate SVG path for a squircle (superellipse rounded rectangle)
+ * iOS-style continuous corner curvature
+ */
+function generateSquirclePath(
+  width: number,
+  height: number,
+  radius: number,
+  smoothing: number = 0.6
+): string {
+  // Validate inputs
+  const w = sanitizeSVGNumber(width, 100, 1, 10000);
+  const h = sanitizeSVGNumber(height, 100, 1, 10000);
+  const inputRadius = sanitizeSVGNumber(radius, 10, 0, 5000);
+  const smooth = sanitizeSVGNumber(smoothing, 0.6, 0, 1);
+
+  // Clamp radius to half of smallest dimension
+  const maxRadius = Math.min(w, h) / 2;
+  const r = Math.min(inputRadius, maxRadius);
+
+  if (r <= 0 || smooth <= 0) {
+    return `M 0 0 L ${w} 0 L ${w} ${h} L 0 ${h} Z`;
+  }
+
+  // For squircle, extend curve further along edges
+  // The smoothing factor controls how much (1.0 to 1.8x radius)
+  const p = 1 + smooth * 0.8;
+  const arcLength = Math.min(r * p, w / 2, h / 2);
+
+  // Modified kappa for rounder iOS-style curves
+  const k = 0.5522847498 * (1 + smooth * 0.3);
+  const cp = r * k;
+
+  // Build path clockwise from top-left
+  return [
+    `M ${arcLength.toFixed(3)} 0`,
+    `L ${(w - arcLength).toFixed(3)} 0`,
+    `C ${(w - arcLength + cp).toFixed(3)} 0, ${w.toFixed(3)} ${(arcLength - cp).toFixed(3)}, ${w.toFixed(3)} ${arcLength.toFixed(3)}`,
+    `L ${w.toFixed(3)} ${(h - arcLength).toFixed(3)}`,
+    `C ${w.toFixed(3)} ${(h - arcLength + cp).toFixed(3)}, ${(w - arcLength + cp).toFixed(3)} ${h.toFixed(3)}, ${(w - arcLength).toFixed(3)} ${h.toFixed(3)}`,
+    `L ${arcLength.toFixed(3)} ${h.toFixed(3)}`,
+    `C ${(arcLength - cp).toFixed(3)} ${h.toFixed(3)}, 0 ${(h - arcLength + cp).toFixed(3)}, 0 ${(h - arcLength).toFixed(3)}`,
+    `L 0 ${arcLength.toFixed(3)}`,
+    `C 0 ${(arcLength - cp).toFixed(3)}, ${(arcLength - cp).toFixed(3)} 0, ${arcLength.toFixed(3)} 0`,
+    `Z`
+  ].join(" ");
+}
+
+/**
+ * Generate SVG path for a star
+ */
+function generateStarPath(
+  width: number,
+  height: number,
+  points: number = 5,
+  innerRadiusRatio: number = 0.382
+): string {
+  // Validate inputs
+  const w = sanitizeSVGNumber(width, 100, 1, 10000);
+  const h = sanitizeSVGNumber(height, 100, 1, 10000);
+  const p = Math.round(sanitizeSVGNumber(points, 5, 3, 50)); // At least 3 points, max 50
+  const ratio = sanitizeSVGNumber(innerRadiusRatio, 0.382, 0.1, 0.9); // Inner radius between 10% and 90%
+
+  const cx = w / 2;
+  const cy = h / 2;
+  const outerRadius = Math.min(w, h) / 2;
+  const innerRadius = outerRadius * ratio;
+  const angleOffset = -Math.PI / 2; // Start from top
+
+  const pathPoints: string[] = [];
+  for (let i = 0; i < p * 2; i++) {
+    const angle = angleOffset + (Math.PI * i) / p;
+    const radius = i % 2 === 0 ? outerRadius : innerRadius;
+    const x = cx + radius * Math.cos(angle);
+    const y = cy + radius * Math.sin(angle);
+    pathPoints.push(`${x.toFixed(3)},${y.toFixed(3)}`);
+  }
+
+  return `M ${pathPoints.join(" L ")} Z`;
+}
+
+/**
+ * Get position relative to parent bounds
+ */
+function getRelativePosition(
+  absoluteBounds: Rectangle | undefined,
+  parentBounds: Rectangle | undefined,
+  scale: number
+): { left: number; top: number } | null {
+  if (!absoluteBounds) return null;
+
+  const parentX = parentBounds?.x ?? 0;
+  const parentY = parentBounds?.y ?? 0;
+
+  return {
+    left: (absoluteBounds.x - parentX) * scale,
+    top: (absoluteBounds.y - parentY) * scale,
+  };
+}
+
+export function FigmaRenderer({
+  node,
+  scale = 1,
+  selectedId,
+  onNodeClick,
+  onPrototypeNavigate,
+  renderMode = "absolute",
+  showOutlines = false,
+  parentBounds,
+  swapState,
+  findNodeById,
+}: FigmaRendererProps) {
+  // Check if this node should be swapped
+  const swappedNodeId = swapState?.get(node.id);
+  const swappedNode = swappedNodeId && findNodeById ? findNodeById(swappedNodeId) : null;
+
+  // If this node is swapped, render the swapped node instead (preserving position)
+  if (swappedNode) {
+    return (
+      <FigmaRenderer
+        node={swappedNode}
+        scale={scale}
+        selectedId={selectedId}
+        onNodeClick={onNodeClick}
+        onPrototypeNavigate={onPrototypeNavigate}
+        renderMode={renderMode}
+        showOutlines={showOutlines}
+        parentBounds={parentBounds}
+        swapState={swapState}
+        findNodeById={findNodeById}
+      />
+    );
+  }
+
+  const handleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation();
+
+      // Check if this node has prototype interactions
+      const sceneNode = node as SceneNode;
+      const interactions = sceneNode.prototypeInteractions;
+      if (interactions && interactions.length > 0) {
+        // Find ON_CLICK or ON_DRAG interaction
+        const clickInteraction = interactions.find(
+          (i) => i.event?.interactionType === "ON_CLICK" ||
+                 i.event?.interactionType === "ON_DRAG" ||
+                 i.event?.interactionType === "DRAG"
+        );
+        if (clickInteraction && clickInteraction.actions?.[0]) {
+          const action = clickInteraction.actions[0];
+
+          // Handle external URL
+          if (action.connectionType === "EXTERNAL_URL" && action.url) {
+            e.preventDefault();
+            window.open(action.url, "_blank", "noopener,noreferrer");
+            return;
+          }
+
+          // Handle SCROLL_TO navigation
+          if (action.navigationType === "SCROLL_TO" && action.transitionNodeID) {
+            e.preventDefault();
+            const targetElement = document.querySelector(`[data-figma-id="${action.transitionNodeID}"]`);
+            if (targetElement) {
+              targetElement.scrollIntoView({ behavior: "smooth", block: "center" });
+              // Add highlight effect
+              targetElement.classList.add("prototype-target-highlight");
+              setTimeout(() => {
+                targetElement.classList.remove("prototype-target-highlight");
+              }, 1000);
+            }
+            return;
+          }
+
+          // Handle OVERLAY, SWAP, or standard navigation
+          if (action.transitionNodeID && onPrototypeNavigate) {
+            e.preventDefault();
+            onPrototypeNavigate(
+              action.transitionNodeID,
+              action.transitionType,
+              action.transitionDuration,
+              action.easingType,
+              action.navigationType,
+              // Pass source node ID for SWAP
+              action.navigationType === "SWAP" ? node.id : undefined
+            );
+            return;
+          }
+
+          // Handle CLOSE/BACK action (for overlays)
+          if ((action.navigationType === "CLOSE" || action.navigationType === "BACK") && onPrototypeNavigate) {
+            e.preventDefault();
+            onPrototypeNavigate("", undefined, undefined, undefined, action.navigationType);
+            return;
+          }
+        }
+      }
+
+      onNodeClick?.(node);
+    },
+    [node, onNodeClick, onPrototypeNavigate]
+  );
+
+  // Skip invisible nodes
+  if (node.visible === false) {
+    return null;
+  }
+
+  const isSelected = selectedId === node.id;
+
+  // Common wrapper styles
+  const getWrapperStyle = (): CSSProperties => {
+    const style: CSSProperties = {};
+
+    if (showOutlines) {
+      style.outline = isSelected ? "2px solid #0066ff" : "1px dashed rgba(0,0,0,0.1)";
+    } else if (isSelected) {
+      style.outline = "2px solid #0066ff";
+    }
+
+    return style;
+  };
+
+  switch (node.type) {
+    case "DOCUMENT":
+      return (
+        <div className="figma-document" style={getWrapperStyle()}>
+          {"children" in node &&
+            node.children?.map((child, index) => (
+              <FigmaRenderer
+                key={child.id || index}
+                node={child as FigmaNode}
+                scale={scale}
+                selectedId={selectedId}
+                onNodeClick={onNodeClick}
+                onPrototypeNavigate={onPrototypeNavigate}
+                renderMode={renderMode}
+                showOutlines={showOutlines}
+                swapState={swapState}
+                findNodeById={findNodeById}
+              />
+            ))}
+        </div>
+      );
+
+    case "CANVAS":
+      return (
+        <CanvasRenderer
+          node={node as CanvasNode}
+          scale={scale}
+          selectedId={selectedId}
+          onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
+          onClick={handleClick}
+          wrapperStyle={getWrapperStyle()}
+          renderMode={renderMode}
+          showOutlines={showOutlines}
+          swapState={swapState}
+          findNodeById={findNodeById}
+        />
+      );
+
+    case "FRAME":
+    case "COMPONENT":
+    case "COMPONENT_SET":
+    case "INSTANCE":
+    case "SYMBOL":
+    case "SECTION":
+    case "SLIDE":
+    case "SLIDE_ROW":
+    case "SLIDE_GRID":
+    case "TRANSFORM_GROUP":
+    case "WIDGET":
+    case "EMBED":
+    case "MEDIA":
+    case "LINK_UNFURL":
+      return (
+        <FrameRenderer
+          node={node as FrameNode}
+          scale={scale}
+          selectedId={selectedId}
+          onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
+          onClick={handleClick}
+          wrapperStyle={getWrapperStyle()}
+          renderMode={renderMode}
+          showOutlines={showOutlines}
+          parentBounds={parentBounds}
+          swapState={swapState}
+          findNodeById={findNodeById}
+        />
+      );
+
+    case "GROUP":
+    case "STICKY":
+    case "SHAPE_WITH_TEXT":
+    case "CONNECTOR":
+    case "CODE_BLOCK":
+      return (
+        <GroupRenderer
+          node={node as GroupNode}
+          scale={scale}
+          selectedId={selectedId}
+          onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
+          onClick={handleClick}
+          wrapperStyle={getWrapperStyle()}
+          renderMode={renderMode}
+          showOutlines={showOutlines}
+          parentBounds={parentBounds}
+          swapState={swapState}
+          findNodeById={findNodeById}
+        />
+      );
+
+    case "TEXT":
+      return (
+        <TextRenderer
+          node={node as TextNode}
+          scale={scale}
+          onClick={handleClick}
+          wrapperStyle={getWrapperStyle()}
+          renderMode={renderMode}
+          parentBounds={parentBounds}
+        />
+      );
+
+    case "RECTANGLE":
+    case "ROUNDED_RECTANGLE":
+    case "ELLIPSE":
+    case "LINE":
+    case "VECTOR":
+    case "STAR":
+    case "REGULAR_POLYGON":
+    case "POLYGON":
+    case "TEXT_PATH":
+    case "SLICE":
+    case "STAMP":
+    case "HIGHLIGHT":
+    case "WASHI_TAPE":
+    case "INTERACTIVE_SLIDE_ELEMENT":
+      return (
+        <VectorRenderer
+          node={node as VectorNode}
+          scale={scale}
+          onClick={handleClick}
+          wrapperStyle={getWrapperStyle()}
+          renderMode={renderMode}
+          parentBounds={parentBounds}
+        />
+      );
+
+    case "BOOLEAN_OPERATION":
+      return (
+        <BooleanRenderer
+          node={node as BooleanOperationNode}
+          scale={scale}
+          selectedId={selectedId}
+          onNodeClick={onNodeClick}
+          onClick={handleClick}
+          wrapperStyle={getWrapperStyle()}
+          renderMode={renderMode}
+          showOutlines={showOutlines}
+          parentBounds={parentBounds}
+          swapState={swapState}
+          findNodeById={findNodeById}
+        />
+      );
+
+    default:
+      // Render a placeholder for unsupported node types
+      return (
+        <div
+          className="figma-unsupported"
+          onClick={handleClick}
+          style={{
+            ...getWrapperStyle(),
+            padding: "8px",
+            background: "#f0f0f0",
+            border: "1px dashed #ccc",
+            fontSize: "12px",
+            color: "#666",
+          }}
+        >
+          {node.type}: {node.name}
+        </div>
+      );
+  }
+}
+
+/**
+ * Canvas (Page) Renderer
+ */
+const CanvasRenderer = React.memo(function CanvasRenderer({
+  node,
+  scale,
+  selectedId,
+  onNodeClick,
+  onPrototypeNavigate,
+  onClick,
+  wrapperStyle,
+  renderMode,
+  showOutlines,
+  swapState,
+  findNodeById,
+}: {
+  node: CanvasNode;
+  scale: number;
+  selectedId?: string;
+  onNodeClick?: (node: FigmaNode) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string, sourceNodeId?: string) => void;
+  onClick: (e: React.MouseEvent) => void;
+  wrapperStyle: CSSProperties;
+  renderMode: "absolute" | "flow";
+  showOutlines: boolean;
+  swapState?: Map<string, string>;
+  findNodeById?: (nodeId: string) => FigmaNode | null;
+}) {
+  const bgColor = node.backgroundColor
+    ? colorToRgba(node.backgroundColor)
+    : "#ffffff";
+
+  // Calculate bounds for the canvas
+  const bounds = useMemo(() => {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+    node.children?.forEach((child) => {
+      const childNode = child as FigmaNode;
+      if ("absoluteBoundingBox" in childNode && childNode.absoluteBoundingBox) {
+        const box = childNode.absoluteBoundingBox;
+        minX = Math.min(minX, box.x);
+        minY = Math.min(minY, box.y);
+        maxX = Math.max(maxX, box.x + box.width);
+        maxY = Math.max(maxY, box.y + box.height);
+      }
+    });
+
+    if (minX === Infinity) {
+      return { x: 0, y: 0, width: 800, height: 600 };
+    }
+
+    return {
+      x: minX,
+      y: minY,
+      width: maxX - minX,
+      height: maxY - minY,
+    };
+  }, [node.children]);
+
+  return (
+    <div
+      className="figma-canvas"
+      onClick={onClick}
+      style={{
+        ...wrapperStyle,
+        position: "relative",
+        backgroundColor: bgColor,
+        width: bounds.width * scale,
+        height: bounds.height * scale,
+        overflow: "hidden",
+        transform: `scale(${scale})`,
+        transformOrigin: "top left",
+      }}
+    >
+      {node.children?.map((child, index) => (
+        <FigmaRenderer
+          key={(child as FigmaNode).id || index}
+          node={child as FigmaNode}
+          scale={1}
+          selectedId={selectedId}
+          onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
+          renderMode={renderMode}
+          showOutlines={showOutlines}
+          parentBounds={{ x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }}
+          swapState={swapState}
+          findNodeById={findNodeById}
+        />
+      ))}
+    </div>
+  );
+});
+
+/**
+ * Get hover interaction from node's prototype interactions
+ */
+function getHoverInteraction(node: InteractableNode): PrototypeInteraction | null {
+  if (!node.prototypeInteractions) return null;
+  return node.prototypeInteractions.find(
+    (i) => i.event?.interactionType === "ON_HOVER" ||
+           i.event?.interactionType === "MOUSE_ENTER"
+  ) || null;
+}
+
+/**
+ * Create hover handlers for prototype interactions
+ */
+function useHoverHandlers(
+  node: InteractableNode,
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string) => void
+) {
+  const handleMouseEnter = useCallback(() => {
+    if (!onPrototypeNavigate) return;
+    const hoverInteraction = getHoverInteraction(node);
+    if (hoverInteraction && hoverInteraction.actions?.[0]) {
+      const action = hoverInteraction.actions[0];
+      if (action.transitionNodeID) {
+        onPrototypeNavigate(
+          action.transitionNodeID,
+          action.transitionType,
+          action.transitionDuration,
+          action.easingType,
+          action.navigationType
+        );
+      }
+    }
+  }, [node, onPrototypeNavigate]);
+
+  const handleMouseLeave = useCallback(() => {
+    if (!onPrototypeNavigate || !node.prototypeInteractions) return;
+    // Find MOUSE_LEAVE interaction
+    const leaveInteraction = node.prototypeInteractions.find(
+      (i) => i.event?.interactionType === "MOUSE_LEAVE"
+    );
+    if (leaveInteraction && leaveInteraction.actions?.[0]) {
+      const action = leaveInteraction.actions[0];
+      if (action.transitionNodeID) {
+        onPrototypeNavigate(
+          action.transitionNodeID,
+          action.transitionType,
+          action.transitionDuration,
+          action.easingType,
+          action.navigationType
+        );
+      }
+    }
+  }, [node, onPrototypeNavigate]);
+
+  const hasHover = getHoverInteraction(node) !== null;
+  return { handleMouseEnter, handleMouseLeave, hasHover };
+}
+
+/**
+ * Frame Renderer
+ */
+const FrameRenderer = React.memo(function FrameRenderer({
+  node,
+  scale,
+  selectedId,
+  onNodeClick,
+  onPrototypeNavigate,
+  onClick,
+  wrapperStyle,
+  renderMode,
+  showOutlines,
+  parentBounds,
+  swapState,
+  findNodeById,
+}: {
+  node: FrameNode;
+  scale: number;
+  selectedId?: string;
+  onNodeClick?: (node: FigmaNode) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string, sourceNodeId?: string) => void;
+  onClick: (e: React.MouseEvent) => void;
+  wrapperStyle: CSSProperties;
+  renderMode: "absolute" | "flow";
+  showOutlines: boolean;
+  parentBounds?: Rectangle;
+  swapState?: Map<string, string>;
+  findNodeById?: (nodeId: string) => FigmaNode | null;
+}) {
+  const { handleMouseEnter, handleMouseLeave, hasHover } = useHoverHandlers(node, onPrototypeNavigate);
+  const style = useMemo(() => {
+    const s: CSSProperties = {
+      ...wrapperStyle,
+      boxSizing: "border-box",
+    };
+
+    // Position and size - use relative positioning when we have parent bounds
+    if (node.absoluteBoundingBox && renderMode === "absolute") {
+      s.position = "absolute";
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
+      s.width = node.absoluteBoundingBox.width * scale;
+      s.height = node.absoluteBoundingBox.height * scale;
+    } else if (node.size) {
+      s.width = node.size.x * scale;
+      s.height = node.size.y * scale;
+    }
+
+    // Layout mode (flexbox)
+    if (node.layoutMode && node.layoutMode !== "NONE") {
+      s.display = "flex";
+      s.flexDirection = node.layoutMode === "HORIZONTAL" ? "row" : "column";
+
+      // Wrap
+      if (node.layoutWrap === "WRAP") {
+        s.flexWrap = "wrap";
+      }
+
+      // Primary axis alignment (justify-content)
+      switch (node.primaryAxisAlignItems) {
+        case "MIN": s.justifyContent = "flex-start"; break;
+        case "CENTER": s.justifyContent = "center"; break;
+        case "MAX": s.justifyContent = "flex-end"; break;
+        case "SPACE_BETWEEN": s.justifyContent = "space-between"; break;
+        case "SPACE_EVENLY": s.justifyContent = "space-evenly"; break;
+      }
+
+      // Counter axis alignment (align-items)
+      switch (node.counterAxisAlignItems) {
+        case "MIN": s.alignItems = "flex-start"; break;
+        case "CENTER": s.alignItems = "center"; break;
+        case "MAX": s.alignItems = "flex-end"; break;
+        case "BASELINE": s.alignItems = "baseline"; break;
+        case "STRETCH": s.alignItems = "stretch"; break;
+        case "AUTO": s.alignItems = "auto"; break;
+      }
+
+      // Padding
+      if (node.paddingTop) s.paddingTop = node.paddingTop * scale;
+      if (node.paddingRight) s.paddingRight = node.paddingRight * scale;
+      if (node.paddingBottom) s.paddingBottom = node.paddingBottom * scale;
+      if (node.paddingLeft) s.paddingLeft = node.paddingLeft * scale;
+
+      // Gap (item spacing for primary axis, counter axis spacing for wrapped rows)
+      if (node.itemSpacing !== undefined && node.counterAxisSpacing !== undefined) {
+        s.rowGap = (node.layoutMode === "HORIZONTAL" ? node.counterAxisSpacing : node.itemSpacing) * scale;
+        s.columnGap = (node.layoutMode === "HORIZONTAL" ? node.itemSpacing : node.counterAxisSpacing) * scale;
+      } else if (node.itemSpacing) {
+        s.gap = node.itemSpacing * scale;
+      }
+    }
+
+    // Background
+    if (node.fills && node.fills.length > 0) {
+      const backgrounds: string[] = [];
+      for (const fill of node.fills) {
+        const bg = paintToCSS(fill);
+        if (bg) backgrounds.push(bg);
+      }
+      if (backgrounds.length > 0) {
+        // Use 'background' for images and gradients, 'backgroundColor' for solid colors
+        const hasImageOrGradient = backgrounds.some(bg => bg.includes("url(") || bg.includes("gradient"));
+        if (backgrounds.length === 1 && !hasImageOrGradient) {
+          s.backgroundColor = backgrounds[0];
+        } else {
+          s.background = backgrounds.reverse().join(", ");
+        }
+      }
+    }
+
+    // Border radius
+    if (node.cornerRadius) {
+      s.borderRadius = node.cornerRadius * scale;
+    } else if (node.rectangleCornerRadii) {
+      s.borderRadius = node.rectangleCornerRadii
+        .map((r) => `${r * scale}px`)
+        .join(" ");
+    }
+
+    // Stroke (border) with full properties
+    applyStroke(s, node, scale);
+
+    // Effects (shadows, blur) with independent scaling support
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
+
+    // Opacity
+    if (node.opacity !== undefined && node.opacity < 1) {
+      s.opacity = node.opacity;
+    }
+
+    // Clip content
+    if (node.clipsContent) {
+      s.overflow = "hidden";
+    }
+
+    // Handle mask properties
+    if (node.isMask) {
+      // For luminance masks, add grayscale filter
+      if (node.maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
+    }
+
+    // Transform (rotation/skew)
+    applyTransform(s, node, scale);
+
+    // Blend mode
+    applyBlendMode(s, node);
+
+    // Isolation for proper group compositing
+    applyIsolation(s, node);
+
+    // Prototype interaction indicator (cursor pointer for interactive elements)
+    applyPrototypeIndicator(s, node);
+
+    return s;
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
+
+  // Add data attribute for prototype interactions
+  const hasInteractions = hasPrototypeInteractions(node);
+
+  return (
+    <div
+      className={`figma-frame figma-${node.type.toLowerCase()}`}
+      onClick={onClick}
+      onMouseEnter={hasHover ? handleMouseEnter : undefined}
+      onMouseLeave={hasHover ? handleMouseLeave : undefined}
+      style={style}
+      data-figma-id={node.id}
+      data-figma-name={node.name}
+      data-has-prototype={hasInteractions || undefined}
+    >
+      {node.children?.map((child, index) => (
+        <FigmaRenderer
+          key={(child as FigmaNode).id || index}
+          node={child as FigmaNode}
+          scale={1}
+          selectedId={selectedId}
+          onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
+          renderMode={node.layoutMode && node.layoutMode !== "NONE" ? "flow" : renderMode}
+          showOutlines={showOutlines}
+          parentBounds={node.absoluteBoundingBox}
+          swapState={swapState}
+          findNodeById={findNodeById}
+        />
+      ))}
+    </div>
+  );
+});
+
+/**
+ * Group Renderer
+ */
+const GroupRenderer = React.memo(function GroupRenderer({
+  node,
+  scale,
+  selectedId,
+  onNodeClick,
+  onPrototypeNavigate,
+  onClick,
+  wrapperStyle,
+  renderMode,
+  showOutlines,
+  parentBounds,
+  swapState,
+  findNodeById,
+}: {
+  node: GroupNode;
+  scale: number;
+  selectedId?: string;
+  onNodeClick?: (node: FigmaNode) => void;
+  onPrototypeNavigate?: (targetNodeId: string, transitionType?: string, transitionDuration?: number, easingType?: string, navigationType?: string, sourceNodeId?: string) => void;
+  onClick: (e: React.MouseEvent) => void;
+  wrapperStyle: CSSProperties;
+  renderMode: "absolute" | "flow";
+  showOutlines: boolean;
+  parentBounds?: Rectangle;
+  swapState?: Map<string, string>;
+  findNodeById?: (nodeId: string) => FigmaNode | null;
+}) {
+  const style = useMemo(() => {
+    const s: CSSProperties = {
+      ...wrapperStyle,
+    };
+
+    if (node.absoluteBoundingBox && renderMode === "absolute") {
+      s.position = "absolute";
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
+      s.width = node.absoluteBoundingBox.width * scale;
+      s.height = node.absoluteBoundingBox.height * scale;
+    }
+
+    if (node.opacity !== undefined && node.opacity < 1) {
+      s.opacity = node.opacity;
+    }
+
+    // Effects with independent scaling support
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
+
+    // Handle mask properties for groups
+    if (node.isMask) {
+      if (node.maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
+    }
+
+    // Transform (rotation/skew)
+    applyTransform(s, node, scale);
+
+    // Blend mode
+    applyBlendMode(s, node);
+
+    // Isolation for proper group compositing
+    applyIsolation(s, node);
+
+    return s;
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
+
+  return (
+    <div
+      className="figma-group"
+      onClick={onClick}
+      style={style}
+      data-figma-id={node.id}
+      data-figma-name={node.name}
+    >
+      {node.children?.map((child, index) => (
+        <FigmaRenderer
+          key={(child as FigmaNode).id || index}
+          node={child as FigmaNode}
+          scale={1}
+          selectedId={selectedId}
+          onNodeClick={onNodeClick}
+          onPrototypeNavigate={onPrototypeNavigate}
+          renderMode={renderMode}
+          showOutlines={showOutlines}
+          parentBounds={node.absoluteBoundingBox}
+          swapState={swapState}
+          findNodeById={findNodeById}
+        />
+      ))}
+    </div>
+  );
+});
+
+/**
+ * Text Renderer
+ */
+const TextRenderer = React.memo(function TextRenderer({
+  node,
+  scale,
+  onClick,
+  wrapperStyle,
+  renderMode,
+  parentBounds,
+}: {
+  node: TextNode;
+  scale: number;
+  onClick: (e: React.MouseEvent) => void;
+  wrapperStyle: CSSProperties;
+  renderMode: "absolute" | "flow";
+  parentBounds?: Rectangle;
+}) {
+  const style = useMemo(() => {
+    const s: ExtendedCSSProperties = {
+      ...wrapperStyle,
+      whiteSpace: "pre-wrap",
+      wordBreak: "break-word",
+    };
+
+    if (node.absoluteBoundingBox && renderMode === "absolute") {
+      s.position = "absolute";
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
+      s.width = node.absoluteBoundingBox.width * scale;
+    }
+
+    // Text styles
+    if (node.style) {
+      const ts = node.style;
+
+      s.fontFamily = `"${ts.fontFamily}", system-ui, sans-serif`;
+      s.fontSize = ts.fontSize * scale;
+      s.fontWeight = ts.fontWeight;
+
+      // Font style (italic/oblique)
+      if (ts.fontStyle === "italic" || ts.italic) {
+        s.fontStyle = "italic";
+      }
+
+      // Letter spacing - handle both pixel and percent units
+      if (ts.letterSpacing) {
+        if (ts.letterSpacingUnit === "PERCENT") {
+          s.letterSpacing = `${ts.letterSpacing / 100}em`;
+        } else {
+          s.letterSpacing = ts.letterSpacing * scale;
+        }
+      }
+
+      if (ts.lineHeightPx) {
+        s.lineHeight = `${ts.lineHeightPx * scale}px`;
+      } else if (ts.lineHeightPercent) {
+        s.lineHeight = `${ts.lineHeightPercent}%`;
+      }
+
+      // Text alignment
+      switch (ts.textAlignHorizontal) {
+        case "LEFT": s.textAlign = "left"; break;
+        case "CENTER": s.textAlign = "center"; break;
+        case "RIGHT": s.textAlign = "right"; break;
+        case "JUSTIFIED": s.textAlign = "justify"; break;
+      }
+
+      // Vertical text alignment using flexbox
+      if (ts.textAlignVertical && ts.textAlignVertical !== "TOP") {
+        s.display = "flex";
+        s.flexDirection = "column";
+        switch (ts.textAlignVertical) {
+          case "CENTER": s.justifyContent = "center"; break;
+          case "BOTTOM": s.justifyContent = "flex-end"; break;
+        }
+        // If we also have height set, use the full height
+        if (node.absoluteBoundingBox && renderMode === "absolute") {
+          s.height = node.absoluteBoundingBox.height * scale;
+        }
+      }
+
+      // Text decoration
+      switch (ts.textDecoration) {
+        case "UNDERLINE": s.textDecoration = "underline"; break;
+        case "STRIKETHROUGH": s.textDecoration = "line-through"; break;
+      }
+
+      // Text case
+      switch (ts.textCase) {
+        case "UPPER": s.textTransform = "uppercase"; break;
+        case "LOWER": s.textTransform = "lowercase"; break;
+        case "TITLE": s.textTransform = "capitalize"; break;
+        case "SMALL_CAPS":
+        case "SMALL_CAPS_FORCED":
+          s.fontVariant = "small-caps";
+          break;
+      }
+
+      // Text truncation with maxLines support
+      if (ts.textTruncation === "ENDING" || node.textTruncation === "ENDING") {
+        const maxLines = ts.maxLines || node.maxLines;
+        if (maxLines && maxLines > 1) {
+          // Multi-line truncation using CSS line-clamp
+          s.display = "-webkit-box";
+          s.WebkitLineClamp = maxLines;
+          s.WebkitBoxOrient = "vertical";
+          s.overflow = "hidden";
+        } else {
+          // Single line truncation
+          s.overflow = "hidden";
+          s.textOverflow = "ellipsis";
+          s.whiteSpace = "nowrap";
+        }
+      }
+
+      // Fill color for text
+      if (ts.fills && ts.fills.length > 0) {
+        const fill = paintToCSS(ts.fills[0]);
+        if (fill) s.color = fill;
+      }
+    }
+
+    // Fallback to node fills
+    if (!s.color && node.fills && node.fills.length > 0) {
+      const fill = paintToCSS(node.fills[0]);
+      if (fill) s.color = fill;
+    }
+
+    // Opacity
+    if (node.opacity !== undefined && node.opacity < 1) {
+      s.opacity = node.opacity;
+    }
+
+    // Effects
+    if (node.effects && node.effects.length > 0) {
+      const effects = effectsToCSS(node.effects);
+      // Text uses text-shadow for drop shadows (more appropriate than box-shadow)
+      if (effects.boxShadow) {
+        // Convert box-shadow format to text-shadow (no spread value)
+        s.textShadow = effects.boxShadow.replace(/(\d+px)\s*(\d+px)\s*(\d+px)\s*\d+px/g, "$1 $2 $3");
+      }
+      if (effects.filter) s.filter = effects.filter;
+    }
+
+    // Transform (rotation/skew)
+    applyTransform(s, node, scale);
+
+    // Blend mode
+    applyBlendMode(s, node);
+
+    // Prototype interaction indicator
+    applyPrototypeIndicator(s, node);
+
+    return s;
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
+
+  const hasInteractions = hasPrototypeInteractions(node);
+
+  return (
+    <span
+      className="figma-text"
+      onClick={onClick}
+      style={style}
+      data-figma-id={node.id}
+      data-figma-name={node.name}
+      data-has-prototype={hasInteractions || undefined}
+    >
+      {node.characters}
+    </span>
+  );
+});
+
+/**
+ * Vector/Shape Renderer
+ */
+const VectorRenderer = React.memo(function VectorRenderer({
+  node,
+  scale,
+  onClick,
+  wrapperStyle,
+  renderMode,
+  parentBounds,
+}: {
+  node: VectorNode;
+  scale: number;
+  onClick: (e: React.MouseEvent) => void;
+  wrapperStyle: CSSProperties;
+  renderMode: "absolute" | "flow";
+  parentBounds?: Rectangle;
+}) {
+  const style = useMemo(() => {
+    const s: CSSProperties = {
+      ...wrapperStyle,
+      boxSizing: "border-box",
+    };
+
+    if (node.absoluteBoundingBox && renderMode === "absolute") {
+      s.position = "absolute";
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
+      s.width = node.absoluteBoundingBox.width * scale;
+      s.height = node.absoluteBoundingBox.height * scale;
+    } else if (node.size) {
+      s.width = node.size.x * scale;
+      s.height = node.size.y * scale;
+    }
+
+    // Background fills
+    if (node.fills && node.fills.length > 0) {
+      const backgrounds: string[] = [];
+      for (const fill of node.fills) {
+        const bg = paintToCSS(fill);
+        if (bg) backgrounds.push(bg);
+      }
+      if (backgrounds.length > 0) {
+        // Use 'background' for images and gradients, 'backgroundColor' for solid colors
+        const hasImageOrGradient = backgrounds.some(bg => bg.includes("url(") || bg.includes("gradient"));
+        if (backgrounds.length === 1 && !hasImageOrGradient) {
+          s.backgroundColor = backgrounds[0];
+        } else {
+          s.background = backgrounds.reverse().join(", ");
+        }
+      }
+    }
+
+    // Shape-specific styling
+    if (node.type === "ELLIPSE") {
+      s.borderRadius = "50%";
+    } else if (node.type === "LINE") {
+      // For lines, use a border instead of background
+      if (node.strokes && node.strokes.length > 0) {
+        const strokeColor = paintToCSS(node.strokes[0]);
+        if (strokeColor) {
+          s.backgroundColor = "transparent";
+          s.borderTop = `${(node.strokeWeight || 1) * scale}px solid ${strokeColor}`;
+        }
+      }
+    }
+
+    // Border radius for rectangles
+    if (node.type === "RECTANGLE" || node.type === "ROUNDED_RECTANGLE") {
+      if (node.cornerRadius) {
+        s.borderRadius = node.cornerRadius * scale;
+      } else if (node.rectangleCornerRadii) {
+        s.borderRadius = node.rectangleCornerRadii
+          .map((r) => `${r * scale}px`)
+          .join(" ");
+      }
+    }
+
+    // Stroke with full properties
+    if (node.type !== "LINE") {
+      applyStroke(s, node, scale);
+    }
+
+    // Transform (rotation/skew)
+    applyTransform(s, node, scale);
+
+    // Effects with independent scaling support
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
+
+    // Handle mask properties for vectors
+    if (node.isMask) {
+      if (node.maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
+    }
+
+    // Opacity
+    if (node.opacity !== undefined && node.opacity < 1) {
+      s.opacity = node.opacity;
+    }
+
+    // Blend mode
+    applyBlendMode(s, node);
+
+    return s;
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
+
+  // For complex vector paths, render as SVG
+  if (node.fillGeometry && node.fillGeometry.length > 0 && node.type === "VECTOR") {
+    return (
+      <SVGVectorRenderer
+        node={node}
+        scale={scale}
+        onClick={onClick}
+        wrapperStyle={wrapperStyle}
+        renderMode={renderMode}
+        parentBounds={parentBounds}
+      />
+    );
+  }
+
+  // Render rectangles with cornerSmoothing as SVG squircle
+  if ((node.type === "RECTANGLE" || node.type === "ROUNDED_RECTANGLE") && node.cornerSmoothing && node.cornerSmoothing > 0) {
+    const width = node.absoluteBoundingBox?.width || node.size?.x || 100;
+    const height = node.absoluteBoundingBox?.height || node.size?.y || 100;
+    const radius = node.cornerRadius || 0;
+
+    const svgPath = generateSquirclePath(width, height, radius, node.cornerSmoothing);
+
+    const fillColor = node.fills && node.fills.length > 0
+      ? paintToCSS(node.fills[0]) || "none"
+      : "none";
+    const strokeColor = node.strokes && node.strokes.length > 0
+      ? paintToCSS(node.strokes[0]) || "none"
+      : "none";
+
+    return (
+      <div
+        className={`figma-vector figma-squircle`}
+        onClick={onClick}
+        style={{
+          ...style,
+          backgroundColor: "transparent",
+          background: "none",
+          borderRadius: 0,
+        }}
+        data-figma-id={node.id}
+        data-figma-name={node.name}
+      >
+        <svg
+          width={width * scale}
+          height={height * scale}
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ display: "block" }}
+        >
+          <path
+            d={svgPath}
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={node.strokeWeight || 0}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
+            vectorEffect={getStrokeVectorEffect(node)}
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  // Render stars and polygons as SVG
+  if (node.type === "STAR" || node.type === "REGULAR_POLYGON" || node.type === "POLYGON") {
+    const width = node.absoluteBoundingBox?.width || node.size?.x || 100;
+    const height = node.absoluteBoundingBox?.height || node.size?.y || 100;
+
+    // Generate the path based on shape type
+    let svgPath: string;
+    if (node.type === "STAR") {
+      // Use starInnerScale if available, default to golden ratio
+      const innerRatio = (node as unknown as { starInnerScale?: number }).starInnerScale ?? 0.382;
+      const pointCount = (node as unknown as { pointCount?: number }).pointCount ?? 5;
+      svgPath = generateStarPath(width, height, pointCount, innerRatio);
+    } else {
+      // Regular polygon
+      const sides = (node as unknown as { pointCount?: number }).pointCount ?? 6;
+      svgPath = generatePolygonPath(width, height, sides);
+    }
+
+    const fillColor = node.fills && node.fills.length > 0
+      ? paintToCSS(node.fills[0]) || "none"
+      : "none";
+    const strokeColor = node.strokes && node.strokes.length > 0
+      ? paintToCSS(node.strokes[0]) || "none"
+      : "none";
+
+    return (
+      <div
+        className={`figma-vector figma-${node.type.toLowerCase()}`}
+        onClick={onClick}
+        style={{
+          ...style,
+          backgroundColor: "transparent",
+          background: "none",
+        }}
+        data-figma-id={node.id}
+        data-figma-name={node.name}
+      >
+        <svg
+          width={width * scale}
+          height={height * scale}
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ display: "block" }}
+        >
+          <path
+            d={svgPath}
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={node.strokeWeight || 0}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
+            vectorEffect={getStrokeVectorEffect(node)}
+          />
+        </svg>
+      </div>
+    );
+  }
+
+  return (
+    <div
+      className={`figma-vector figma-${node.type.toLowerCase()}`}
+      onClick={onClick}
+      style={style}
+      data-figma-id={node.id}
+      data-figma-name={node.name}
+    />
+  );
+});
+
+/**
+ * SVG Vector Renderer for complex paths
+ */
+function SVGVectorRenderer({
+  node,
+  scale,
+  onClick,
+  wrapperStyle,
+  renderMode,
+  parentBounds,
+}: {
+  node: VectorNode;
+  scale: number;
+  onClick: (e: React.MouseEvent) => void;
+  wrapperStyle: CSSProperties;
+  renderMode: "absolute" | "flow";
+  parentBounds?: Rectangle;
+}) {
+  const containerStyle = useMemo(() => {
+    const s: CSSProperties = {
+      ...wrapperStyle,
+    };
+
+    if (node.absoluteBoundingBox && renderMode === "absolute") {
+      s.position = "absolute";
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
+      s.width = node.absoluteBoundingBox.width * scale;
+      s.height = node.absoluteBoundingBox.height * scale;
+    }
+
+    if (node.opacity !== undefined && node.opacity < 1) {
+      s.opacity = node.opacity;
+    }
+
+    // Effects with independent scaling support
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
+
+    // Handle mask properties for SVG vectors
+    if (node.isMask) {
+      if (node.maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
+    }
+
+    // Blend mode
+    applyBlendMode(s, node);
+
+    return s;
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
+
+  const fillColor = useMemo(() => {
+    if (node.fills && node.fills.length > 0) {
+      return paintToCSS(node.fills[0]) || "none";
+    }
+    return "none";
+  }, [node.fills]);
+
+  const strokeColor = useMemo(() => {
+    if (node.strokes && node.strokes.length > 0) {
+      return paintToCSS(node.strokes[0]) || "none";
+    }
+    return "none";
+  }, [node.strokes]);
+
+  const width = node.absoluteBoundingBox?.width || node.size?.x || 100;
+  const height = node.absoluteBoundingBox?.height || node.size?.y || 100;
+
+  return (
+    <div
+      className="figma-svg-vector"
+      onClick={onClick}
+      style={containerStyle}
+      data-figma-id={node.id}
+      data-figma-name={node.name}
+    >
+      <svg
+        width={width * scale}
+        height={height * scale}
+        viewBox={`0 0 ${width} ${height}`}
+        style={{ display: "block" }}
+      >
+        {/* Render fill paths from vectorPaths */}
+        {node.vectorPaths?.map((vp, index) => (
+          <path
+            key={`fill-${index}`}
+            d={vp.path || vp.data || ""}
+            fill={fillColor}
+            stroke="none"
+            fillRule={vp.windingRule === "EVENODD" || vp.windingRule === "ODD" ? "evenodd" : "nonzero"}
+          />
+        ))}
+        {/* Render stroke paths from strokePaths or fallback to vectorPaths with stroke */}
+        {node.strokePaths?.map((sp, index) => (
+          <path
+            key={`stroke-${index}`}
+            d={sp.path || sp.data || ""}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={node.strokeWeight || 1}
+            strokeLinecap={node.strokeCap === "ROUND" ? "round" : node.strokeCap === "SQUARE" ? "square" : "butt"}
+            strokeLinejoin={node.strokeJoin === "ROUND" ? "round" : node.strokeJoin === "BEVEL" ? "bevel" : "miter"}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
+            fillRule={sp.windingRule === "EVENODD" || sp.windingRule === "ODD" ? "evenodd" : "nonzero"}
+            vectorEffect={getStrokeVectorEffect(node)}
+          />
+        ))}
+        {/* If no strokePaths but there are strokes, add stroke to vectorPaths */}
+        {!node.strokePaths && node.strokes && node.strokes.length > 0 && node.vectorPaths?.map((vp, index) => (
+          <path
+            key={`path-stroke-${index}`}
+            d={vp.path || vp.data || ""}
+            fill="none"
+            stroke={strokeColor}
+            strokeWidth={node.strokeWeight || 1}
+            strokeLinecap={node.strokeCap === "ROUND" ? "round" : node.strokeCap === "SQUARE" ? "square" : "butt"}
+            strokeLinejoin={node.strokeJoin === "ROUND" ? "round" : node.strokeJoin === "BEVEL" ? "bevel" : "miter"}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
+            vectorEffect={getStrokeVectorEffect(node)}
+          />
+        ))}
+        {/* Fallback to fillGeometry if no vectorPaths */}
+        {!node.vectorPaths && node.fillGeometry?.map((geom, index) => (
+          <path
+            key={`legacy-${index}`}
+            d={geom.path || geom.data || ""}
+            fill={fillColor}
+            stroke={strokeColor}
+            strokeWidth={node.strokeWeight || 0}
+            strokeDasharray={getStrokeDashArray(node)}
+            strokeMiterlimit={getStrokeMiterLimit(node)}
+            fillRule={geom.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
+            vectorEffect={getStrokeVectorEffect(node)}
+          />
+        ))}
+      </svg>
+    </div>
+  );
+}
+
+/**
+ * Boolean Operation Renderer
+ */
+const BooleanRenderer = React.memo(function BooleanRenderer({
+  node,
+  scale,
+  selectedId,
+  onNodeClick,
+  onClick,
+  wrapperStyle,
+  renderMode,
+  showOutlines,
+  parentBounds,
+  swapState,
+  findNodeById,
+}: {
+  node: BooleanOperationNode;
+  scale: number;
+  selectedId?: string;
+  onNodeClick?: (node: FigmaNode) => void;
+  onClick: (e: React.MouseEvent) => void;
+  wrapperStyle: CSSProperties;
+  renderMode: "absolute" | "flow";
+  showOutlines: boolean;
+  parentBounds?: Rectangle;
+  swapState?: Map<string, string>;
+  findNodeById?: (nodeId: string) => FigmaNode | null;
+}) {
+  // Boolean operations are complex - we'll render the result as an SVG if possible
+  const style = useMemo(() => {
+    const s: CSSProperties = {
+      ...wrapperStyle,
+    };
+
+    if (node.absoluteBoundingBox && renderMode === "absolute") {
+      s.position = "absolute";
+      const relPos = getRelativePosition(node.absoluteBoundingBox, parentBounds, scale);
+      if (relPos) {
+        s.left = relPos.left;
+        s.top = relPos.top;
+      }
+      s.width = node.absoluteBoundingBox.width * scale;
+      s.height = node.absoluteBoundingBox.height * scale;
+    }
+
+    // Background
+    if (node.fills && node.fills.length > 0) {
+      const backgrounds: string[] = [];
+      for (const fill of node.fills) {
+        const bg = paintToCSS(fill);
+        if (bg) backgrounds.push(bg);
+      }
+      if (backgrounds.length > 0) {
+        // Use 'background' for images, 'backgroundColor' for solid colors
+        if (backgrounds[0].includes("url(")) {
+          s.background = backgrounds[0];
+        } else {
+          s.backgroundColor = backgrounds[0];
+        }
+      }
+    }
+
+    if (node.opacity !== undefined && node.opacity < 1) {
+      s.opacity = node.opacity;
+    }
+
+    // Effects with independent scaling support
+    applyEffects(s, node.effects, scale, node.effectsIndependent);
+
+    // Handle mask properties for boolean operations
+    if (node.isMask) {
+      if (node.maskType === "LUMINANCE") {
+        s.filter = s.filter ? `${s.filter} ${getLuminanceMaskFilter()}` : getLuminanceMaskFilter();
+      }
+    }
+
+    // Blend mode
+    applyBlendMode(s, node);
+
+    return s;
+  }, [node, scale, wrapperStyle, renderMode, parentBounds]);
+
+  // If we have fill geometry, render as SVG
+  if (node.fillGeometry && node.fillGeometry.length > 0) {
+    const width = node.absoluteBoundingBox?.width || 100;
+    const height = node.absoluteBoundingBox?.height || 100;
+
+    const fillColor = node.fills && node.fills.length > 0
+      ? paintToCSS(node.fills[0]) || "none"
+      : "none";
+
+    const strokeColor = node.strokes && node.strokes.length > 0
+      ? paintToCSS(node.strokes[0]) || "none"
+      : "none";
+
+    return (
+      <div
+        className="figma-boolean"
+        onClick={onClick}
+        style={style}
+        data-figma-id={node.id}
+        data-figma-name={node.name}
+      >
+        <svg
+          width={width * scale}
+          height={height * scale}
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ display: "block" }}
+        >
+          {node.fillGeometry.map((geom, index) => (
+            <path
+              key={index}
+              d={geom.path || geom.data || ""}
+              fill={fillColor}
+              stroke={strokeColor}
+              strokeWidth={node.strokeWeight || 0}
+              strokeDasharray={getStrokeDashArray(node)}
+              strokeMiterlimit={getStrokeMiterLimit(node)}
+              fillRule={geom.windingRule === "EVENODD" ? "evenodd" : "nonzero"}
+              vectorEffect={getStrokeVectorEffect(node)}
+            />
+          ))}
+        </svg>
+      </div>
+    );
+  }
+
+  // Fallback to rendering children
+  return (
+    <div
+      className="figma-boolean"
+      onClick={onClick}
+      style={style}
+      data-figma-id={node.id}
+      data-figma-name={node.name}
+    >
+      {node.children?.map((child, index) => (
+        <FigmaRenderer
+          key={(child as FigmaNode).id || index}
+          node={child as FigmaNode}
+          scale={1}
+          selectedId={selectedId}
+          onNodeClick={onNodeClick}
+          renderMode={renderMode}
+          showOutlines={showOutlines}
+          parentBounds={node.absoluteBoundingBox}
+          swapState={swapState}
+          findNodeById={findNodeById}
+        />
+      ))}
+    </div>
+  );
+});
+
+export default FigmaRenderer;
