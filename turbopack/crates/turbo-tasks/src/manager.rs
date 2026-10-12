@@ -1902,17 +1902,20 @@ impl<B: Backend + 'static> TurboTasksApi for TurboTasks<B> {
     }
 
     fn unemit_collectibles(&self, trait_type: TraitTypeId, collectibles: &TaskCollectiblesMap) {
-        for (&collectible, &count) in collectibles {
-            if count > 0 {
-                self.backend.unemit_collectible(
-                    trait_type,
-                    collectible,
-                    count as u32,
-                    current_task("emitting collectible"),
-                    self,
-                );
-            }
+        let collectibles: SmallVec<[(RawVc, u32); 4]> = collectibles
+            .iter()
+            .filter(|&(_, &count)| count > 0)
+            .map(|(&collectible, &count)| (collectible, count as u32))
+            .collect();
+        if collectibles.is_empty() {
+            return;
         }
+        self.backend.unemit_collectibles(
+            trait_type,
+            &collectibles,
+            current_task("emitting collectible"),
+            self,
+        );
     }
 
     fn read_own_task_cell(&self, task: TaskId, index: CellId) -> Result<TypedCellContent> {
