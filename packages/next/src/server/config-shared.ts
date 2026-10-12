@@ -2419,10 +2419,12 @@ export const defaultConfig = Object.freeze({
     proxyPrefetch: 'flexible',
     optimisticClientCache: true,
     manualClientBasePath: false,
+    // availableParallelism() counts the CPUs this process may run on, so a
+    // build limited to some of the machine's CPUs does not start a worker for
+    // every CPU of the machine.
     cpus: Math.max(
       1,
-      (Number(process.env.CIRCLE_NODE_TOTAL) ||
-        (os.cpus() || { length: 1 }).length) - 1
+      (Number(process.env.CIRCLE_NODE_TOTAL) || os.availableParallelism()) - 1
     ),
     memoryBasedWorkersCount: false,
     imgOptConcurrency: null,
