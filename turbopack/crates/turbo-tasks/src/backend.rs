@@ -702,6 +702,22 @@ pub trait Backend: Sized + Sync + Send {
         turbo_tasks: &TurboTasks<Self>,
     );
 
+    /// Lowers `task`'s count of several collectibles of one type, each by its `u32`, as
+    /// [`Backend::unemit_collectible`] does for one. `task` need not have emitted them: taking
+    /// the collectibles of a subgraph records them this way on the taking task. A backend may
+    /// apply the whole slice as one update.
+    fn unemit_collectibles(
+        &self,
+        trait_type: TraitTypeId,
+        collectibles: &[(RawVc, u32)],
+        task: TaskId,
+        turbo_tasks: &TurboTasks<Self>,
+    ) {
+        for &(collectible, count) in collectibles {
+            self.unemit_collectible(trait_type, collectible, count, task, turbo_tasks);
+        }
+    }
+
     fn update_task_cell(
         &self,
         task: TaskId,

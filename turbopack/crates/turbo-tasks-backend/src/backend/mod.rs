@@ -3418,6 +3418,36 @@ impl TurboTasksBackend {
         );
     }
 
+    fn unemit_collectibles(
+        &self,
+        collectible_type: TraitTypeId,
+        collectibles: &[(RawVc, u32)],
+        task_id: TaskId,
+        turbo_tasks: &TurboTasks<TurboTasksBackend>,
+    ) {
+        let collectibles = collectibles.iter().map(|&(collectible, count)| {
+            self.assert_valid_collectible(task_id, collectible);
+            let Some((collectible_task, cell)) = collectible.as_task_cell() else {
+                panic!("Collectibles need to be resolved");
+            };
+            (
+                CollectibleRef {
+                    collectible_type,
+                    cell: CellRef {
+                        task: collectible_task,
+                        cell,
+                    },
+                },
+                -(i32::try_from(count).unwrap()),
+            )
+        });
+        operation::UpdateCollectibleOperation::run_many(
+            task_id,
+            collectibles,
+            self.execute_context(turbo_tasks),
+        );
+    }
+
     fn update_task_cell(
         &self,
         task_id: TaskId,
@@ -3919,6 +3949,16 @@ impl Backend for TurboTasksBackend {
         turbo_tasks: &TurboTasks<Self>,
     ) {
         self.unemit_collectible(collectible_type, collectible, count, task_id, turbo_tasks)
+    }
+
+    fn unemit_collectibles(
+        &self,
+        collectible_type: TraitTypeId,
+        collectibles: &[(RawVc, u32)],
+        task_id: TaskId,
+        turbo_tasks: &TurboTasks<Self>,
+    ) {
+        self.unemit_collectibles(collectible_type, collectibles, task_id, turbo_tasks)
     }
 
     fn update_task_cell(
