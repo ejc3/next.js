@@ -159,10 +159,22 @@ pub async fn compute_binding_usage_info(
             None
         };
 
-        let entries = graph_ref.all_chunk_group_entry_modules();
+        let entries = graph_ref
+            .all_chunk_group_entry_modules()
+            .collect::<Vec<_>>();
+
+        // Visit modules in topological order (importers before the modules they import, as far
+        // as cycles allow). A module is then usually visited once, after all of its importers
+        // have contributed their used exports, instead of once more every time another importer
+        // reaches it (which is quadratic for widely imported barrels with many `export *`
+        // re-exports). The result is the same fixed point in any order.
+        let topological_priority = graph_ref.topological_priority(entries.iter().copied())?;
+        let priority = |module: ResolvedVc<Box<dyn Module>>| {
+            topological_priority.get(&module).copied().unwrap_or(0)
+        };
 
         let visit_count = graph_ref.traverse_edges_fixed_point_with_priority(
-            entries.map(|m| (m, 0)),
+            entries.iter().map(|&m| (m, priority(m))),
             &mut (),
             |parent, target, _, _| {
                 // Entries are always used
@@ -300,7 +312,7 @@ pub async fn compute_binding_usage_info(
                     Ok(GraphTraversalAction::Skip)
                 }
             },
-            |_, _| Ok(0),
+            |module, _| Ok(priority(module)),
         )?;
 
         // Compute cycles and select modules to be 'circuit breakers'
