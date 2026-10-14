@@ -100,25 +100,16 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
             .all_chunk_group_entry_modules()
             .collect::<Vec<_>>();
 
-        // First, compute the depth for each module in the graph
-        let module_depth = {
-            let _inner_span = tracing::info_span!("compute depth").entered();
-
-            let mut module_depth =
-                FxHashMap::with_capacity_and_hasher(module_count, Default::default());
-            module_graph.traverse_edges_bfs(entries.iter().copied(), |parent, node| {
-                if let Some((parent, _)) = parent {
-                    let parent_depth = *module_depth
-                        .get(&parent)
-                        .context("Module depth not found")?;
-                    module_depth.entry(node).or_insert(parent_depth + 1);
-                } else {
-                    module_depth.insert(node, 0);
-                };
-
-                Ok(GraphTraversalAction::Continue)
-            })?;
-            module_depth
+        // Visit modules in topological order (importers before the modules they import, as far as
+        // cycles allow), as bitmaps are propagated downwards. A module is then usually visited
+        // once, after all of its importers, instead of once more every time another importer
+        // reaches it. The resulting bitmaps (and so the grouping by bitmap below) are the same
+        // fixed point in any order.
+        let module_priority = module_graph.topological_priority(entries.iter().copied())?;
+        let priority = |module: ResolvedVc<Box<dyn Module>>| -> Result<u32> {
+            Ok(*module_priority
+                .get(&module)
+                .context("Module priority not found")?)
         };
 
         // For each module, the indices in the bitmap store which merge group entry modules
@@ -166,7 +157,7 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
         let visit_count = module_graph.traverse_edges_fixed_point_with_priority(
             entries
                 .iter()
-                .map(|e| Ok((*e, -*module_depth.get(e).context("Module depth not found")?)))
+                .map(|&e| Ok((e, priority(e)?)))
                 .collect::<Result<Vec<_>>>()?,
             &mut (),
             |parent_info: Option<(ResolvedVc<Box<dyn Module>>, &'_ RefData, _)>,
@@ -244,19 +235,29 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
                     }
                 })
             },
-            |successor, _| {
-                // Invert the ordering here. High priority values get visited first, and we want to
-                // visit the low-depth nodes first, as we are propagating bitmaps downwards.
-                Ok(-*module_depth
-                    .get(&successor)
-                    .context("Module depth not found")?)
-            },
+            |successor, _| priority(successor),
         )?;
 
         drop(inner_span);
         let inner_span = tracing::info_span!("chunk group collection").entered();
 
         span.record("visit_count", visit_count);
+
+        // Below, modules are grouped by equal bitmaps, once per chunk group and once more for the
+        // whole graph. Hashing or comparing a bitmap costs time proportional to its size, so give
+        // every distinct bitmap a small id once and hash and compare the ids instead.
+        let module_merged_group_ids: FxHashMap<ResolvedVc<Box<dyn Module>>, u32> = {
+            let mut ids: FxHashMap<&RoaringBitmapWrapper, u32> =
+                FxHashMap::with_capacity_and_hasher(module_merged_groups.len(), Default::default());
+            module_merged_groups
+                .iter()
+                .map(|(module, bitmap)| {
+                    let next_id = ids.len() as u32;
+                    (*module, *ids.entry(bitmap).or_insert(next_id))
+                })
+                .collect()
+        };
+        drop(module_merged_groups);
 
         #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
         struct ListOccurrence {
@@ -337,9 +338,9 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
                         // A partition of all modules in the chunk into several execution traces
                         // (orderings), stored in the top-level lists and referenced here by
                         // index.
-                        let mut chunk_lists: FxHashMap<&RoaringBitmapWrapper, usize> =
+                        let mut chunk_lists: FxHashMap<u32, usize> =
                             FxHashMap::with_capacity_and_hasher(
-                                module_merged_groups.len() / chunk_group_info.chunk_groups.len(),
+                                module_merged_group_ids.len() / chunk_group_info.chunk_groups.len(),
                                 Default::default(),
                             );
 
@@ -362,7 +363,7 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
                             },
                             |parent_info, node, _| {
                                 let module = node;
-                                let bitmap = module_merged_groups
+                                let bitmap = *module_merged_group_ids
                                     .get(&module)
                                     .context("every module should have a bitmap")?;
 
@@ -406,10 +407,10 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
                                 }
 
                                 if let Some((parent, _)) = parent_info {
-                                    let same_bitmap = module_merged_groups
+                                    let same_bitmap = module_merged_group_ids
                                         .get(&parent)
                                         .context("every module should have a bitmap")?
-                                        == module_merged_groups
+                                        == module_merged_group_ids
                                             .get(&module)
                                             .context("every module should have a bitmap")?;
 
@@ -487,9 +488,9 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
         // Initially these are set based on the bitmaps (and namespace imports), but more modules
         // might need to be exposed if the lists are split up further below.
         let mut exposed_modules_imported: FxHashSet<ResolvedVc<Box<dyn Module>>> =
-            FxHashSet::with_capacity_and_hasher(module_merged_groups.len(), Default::default());
+            FxHashSet::with_capacity_and_hasher(module_merged_group_ids.len(), Default::default());
         let mut exposed_modules_namespace: FxHashSet<ResolvedVc<Box<dyn Module>>> =
-            FxHashSet::with_capacity_and_hasher(module_merged_groups.len(), Default::default());
+            FxHashSet::with_capacity_and_hasher(module_merged_group_ids.len(), Default::default());
 
         module_graph.traverse_edges_dfs(
             entries,
@@ -499,10 +500,10 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
                 let module = node;
 
                 if let Some((parent, _)) = parent_info {
-                    let same_bitmap = module_merged_groups
+                    let same_bitmap = module_merged_group_ids
                         .get(&parent)
                         .context("every module should have a bitmap")?
-                        == module_merged_groups
+                        == module_merged_group_ids
                             .get(&module)
                             .context("every module should have a bitmap")?;
 
@@ -517,10 +518,10 @@ pub async fn compute_merged_modules(module_graph: Vc<ModuleGraph>) -> Result<Vc<
                 if match parent_info {
                     None => true,
                     Some((parent, _)) => {
-                        module_merged_groups
+                        module_merged_group_ids
                             .get(&parent)
                             .context("every module should have a bitmap")?
-                            != module_merged_groups
+                            != module_merged_group_ids
                                 .get(&module)
                                 .context("every module should have a bitmap")?
                     }

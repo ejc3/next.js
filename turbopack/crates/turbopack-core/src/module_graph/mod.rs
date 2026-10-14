@@ -1160,6 +1160,37 @@ impl ModuleGraphSnapshot {
             .collect()
     }
 
+    /// Ranks all modules reachable from `entries` in topological order: a module's rank is its
+    /// DFS post-order index, so (ignoring cycles) every module ranks higher than all of the modules
+    /// it references. Used as the priority of [`Self::traverse_edges_fixed_point_with_priority`]
+    /// (which visits higher priorities first) by fixed-point traversals that propagate state from
+    /// importers to imported modules: a module is then usually visited once, after all of its
+    /// importers, instead of once more every time another importer reaches it.
+    pub fn topological_priority(
+        &self,
+        entries: impl IntoIterator<Item = ResolvedVc<Box<dyn Module>>>,
+    ) -> Result<FxHashMap<ResolvedVc<Box<dyn Module>>, u32>> {
+        let mut priority = FxHashMap::default();
+        let mut post_order = 0u32;
+        self.traverse_nodes_dfs(
+            entries,
+            &mut (),
+            |_, _| Ok(GraphTraversalAction::Continue),
+            |module, _| {
+                // A module can be reached through more than one node (a `VisitedModule` node in a
+                // later graph layer). The first post-order index is already after all of its
+                // descendants and before all of its importers.
+                priority.entry(module).or_insert_with(|| {
+                    let p = post_order;
+                    post_order += 1;
+                    p
+                });
+                Ok(())
+            },
+        )?;
+        Ok(priority)
+    }
+
     /// Traverses all reachable nodes exactly once and calls the visitor.
     ///
     /// * `entries` - The entry modules to start the traversal from
