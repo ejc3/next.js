@@ -463,9 +463,13 @@ impl StaticSortedFile {
                         file.metadata().map(|m| m.len()).unwrap_or(0)
                     )
                 })?;
+                // No `Random` advice: it turns readahead off, so each page of a block that is
+                // not cached faults in as its own read. A warm start reads most of every SST
+                // through lookups that depend on each other, and the default readahead (as a
+                // `pread` of the same file gets in `AccessMode::File`) fetches neighbouring
+                // blocks in the same request.
                 #[cfg(unix)]
                 {
-                    mmap.advise(memmap2::Advice::Random)?;
                     let offset = meta.block_offsets_start(mmap.len());
                     let _ =
                         mmap.advise_range(memmap2::Advice::Sequential, offset, mmap.len() - offset);
