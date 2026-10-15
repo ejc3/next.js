@@ -5,7 +5,7 @@ use auto_hash_map::AutoSet;
 use rustc_hash::{FxHashMap, FxHashSet};
 use tracing::Instrument;
 use turbo_rcstr::RcStr;
-use turbo_tasks::{OperationVc, ResolvedVc, Vc};
+use turbo_tasks::{OperationVc, ReadRef, ResolvedVc, Vc};
 
 use crate::{
     chunk::chunking_context::UnusedReferences,
@@ -35,11 +35,19 @@ pub struct ExportCircuitBreakers(FxHashSet<ResolvedVc<Box<dyn Module>>>);
 #[turbo_tasks::value(transparent, cell = "keyed")]
 pub struct PartialNamespaceModules(FxHashSet<ResolvedVc<Box<dyn Module>>>);
 
+/// The module graph edges of the references in [`UnusedReferences`]. Edge indices are assigned
+/// anew whenever the module graph is rebuilt, so they live in a cell of their own: a task that
+/// reads the rest of [`BindingUsageInfo`] (one module's export usage, say) is not invalidated
+/// because the edges were renumbered.
+#[turbo_tasks::value(transparent)]
+#[derive(Default, Debug)]
+pub struct UnusedReferenceEdges(FxHashSet<GraphEdgeIndex>);
+
 #[turbo_tasks::value]
 #[derive(Clone, Default, Debug)]
 pub struct BindingUsageInfo {
     unused_references: ResolvedVc<UnusedReferences>,
-    unused_references_edges: FxHashSet<GraphEdgeIndex>,
+    unused_references_edges: ResolvedVc<UnusedReferenceEdges>,
 
     used_exports: ResolvedVc<UsedExportsMap>,
     export_circuit_breakers: ResolvedVc<ExportCircuitBreakers>,
@@ -73,8 +81,9 @@ impl ModuleExportUsage {
 }
 
 impl BindingUsageInfo {
-    pub fn is_reference_unused_edge(&self, edge: &GraphEdgeIndex) -> bool {
-        self.unused_references_edges.contains(edge)
+    /// The graph edges of the unused references, which graph traversals skip.
+    pub async fn unused_references_edges(&self) -> Result<ReadRef<UnusedReferenceEdges>> {
+        self.unused_references_edges.await
     }
 
     pub async fn used_exports(
@@ -134,7 +143,7 @@ pub async fn compute_binding_usage_info(
 
         let graph = graph.connect();
         let graph_ref = graph.await?;
-        if graph_ref.binding_usage.is_some() {
+        if graph_ref.unused_edges.is_some() {
             // If the graph already has binding usage info, return it directly. This is
             // unfortunately easy to do with
             // ```
@@ -379,7 +388,7 @@ pub async fn compute_binding_usage_info(
 
         Ok(BindingUsageInfo {
             unused_references: ResolvedVc::cell(unused_references),
-            unused_references_edges,
+            unused_references_edges: ResolvedVc::cell(unused_references_edges),
             used_exports: ResolvedVc::cell(used_exports),
             export_circuit_breakers: ResolvedVc::cell(export_circuit_breakers),
             partial_namespace_modules: ResolvedVc::cell(partial_namespace_modules),

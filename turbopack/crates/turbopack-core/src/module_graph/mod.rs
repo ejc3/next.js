@@ -31,7 +31,7 @@ use crate::{
     module::Module,
     module_graph::{
         async_module_info::{AsyncModulesInfo, compute_async_module_info},
-        binding_usage_info::BindingUsageInfo,
+        binding_usage_info::{BindingUsageInfo, UnusedReferenceEdges},
         chunk_group_info::{ChunkGroupEntry, ChunkGroupInfo, compute_chunk_group_info},
         collect::{CollectedModules, collect_graph},
         merged_modules::{MergedModuleInfo, compute_merged_modules},
@@ -550,7 +550,7 @@ impl SingleModuleGraph {
         edge_filter: impl Fn(&'l RefData) -> bool,
         mut visit_cycle: impl FnMut(&[&'l ResolvedVc<Box<dyn Module>>]) -> Result<()>,
         graph_idx: u32,
-        binding_usage: &'l Option<ReadRef<BindingUsageInfo>>,
+        unused_edges: &'l Option<ReadRef<UnusedReferenceEdges>>,
     ) -> Result<()> {
         // See https://en.wikipedia.org/wiki/Tarjan%27s_strongly_connected_components_algorithm, but
         // implemented iteratively instead of recursively.
@@ -595,9 +595,8 @@ impl SingleModuleGraph {
                         visit_stack.push(VisitStep::AfterVisit(node));
                         let mut neighbors = self.graph.neighbors(node).detach();
                         while let Some((edge, succ)) = neighbors.next(&self.graph) {
-                            if binding_usage.as_ref().is_some_and(|binding_usage| {
-                                binding_usage
-                                    .is_reference_unused_edge(&GraphEdgeIndex::new(graph_idx, edge))
+                            if unused_edges.as_ref().is_some_and(|unused_edges| {
+                                unused_edges.contains(&GraphEdgeIndex::new(graph_idx, edge))
                             }) {
                                 continue;
                             }
@@ -836,8 +835,14 @@ impl ModuleGraph {
                 graphs: graphs.iter().map(|g| g.connect()).try_join().await?,
                 skip_visited_module_children: false,
                 graph_idx_override: None,
-                binding_usage: if let Some(binding_usage) = binding_usage {
-                    Some(binding_usage.connect().await?)
+                unused_edges: if let Some(binding_usage) = binding_usage {
+                    Some(
+                        binding_usage
+                            .connect()
+                            .await?
+                            .unused_references_edges()
+                            .await?,
+                    )
                 } else {
                     None
                 },
@@ -976,8 +981,14 @@ impl ModuleGraphLayer {
                 graphs: vec![graph.connect().await?],
                 skip_visited_module_children: true,
                 graph_idx_override: Some(graph_idx),
-                binding_usage: if let Some(binding_usage) = binding_usage {
-                    Some(binding_usage.connect().await?)
+                unused_edges: if let Some(binding_usage) = binding_usage {
+                    Some(
+                        binding_usage
+                            .connect()
+                            .await?
+                            .unused_references_edges()
+                            .await?,
+                    )
                 } else {
                     None
                 },
@@ -1018,7 +1029,8 @@ pub struct ModuleGraphSnapshot {
 
     graph_idx_override: Option<u32>,
 
-    binding_usage: Option<ReadRef<BindingUsageInfo>>,
+    /// The edges of unused references, which traversals skip (from the graph's binding usage).
+    unused_edges: Option<ReadRef<UnusedReferenceEdges>>,
 }
 
 impl ModuleGraphSnapshot {
@@ -1131,9 +1143,9 @@ impl ModuleGraphSnapshot {
             while let Some((edge_idx, succ_idx)) = walker.next(graph) {
                 let edge_idx = GraphEdgeIndex::new(node.graph_idx, edge_idx);
                 if self
-                    .binding_usage
+                    .unused_edges
                     .as_ref()
-                    .is_some_and(|binding_usage| binding_usage.is_reference_unused_edge(&edge_idx))
+                    .is_some_and(|unused_edges| unused_edges.contains(&edge_idx))
                 {
                     // Don't just return None here, that would end the iterator
                     continue;
@@ -1476,7 +1488,7 @@ impl ModuleGraphSnapshot {
                 &edge_filter,
                 &mut visit_cycle,
                 graph_idx as u32,
-                &self.binding_usage,
+                &self.unused_edges,
             )?;
         }
         Ok(())
