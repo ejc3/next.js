@@ -516,7 +516,10 @@ impl ChunkingType {
 }
 
 /// The modules (soon to be chunk items) that were discovered after traversing a given chunk group.
-#[turbo_tasks::value(cell = "new")]
+///
+/// Compared on update: when a chunk group's traversal is rerun (any change to the module graph
+/// reruns all of them) and finds the same content, the tasks that read it are not invalidated.
+#[turbo_tasks::value]
 pub struct ChunkGroupContentInner {
     /// Regular chunkable modules/module batches
     pub chunkable_items: Vec<ChunkableModuleOrBatch>,
