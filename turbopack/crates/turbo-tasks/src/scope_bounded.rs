@@ -169,14 +169,17 @@ impl<'scope, 'env: 'scope, R: Send + 'env> Scope<'scope, 'env, R> {
 
         let turbo_tasks = self.turbo_tasks.clone();
         let f: Box<dyn FnOnce() + Send + 'scope> = Box::new(|| {
-            let result = {
-                if let Some(turbo_tasks) = turbo_tasks {
-                    // Ensure that the turbo tasks context is maintained across the job.
+            let result = match turbo_tasks {
+                // Ensure that the turbo tasks context is maintained across the job. A job the
+                // calling thread drains already runs in it, and entering it again would panic
+                // while that thread holds it borrowed (inside `with_turbo_tasks`).
+                Some(turbo_tasks)
+                    if !try_turbo_tasks().is_some_and(|tt| Arc::ptr_eq(&tt, &turbo_tasks)) =>
+                {
                     turbo_tasks_scope(turbo_tasks, f)
-                } else {
-                    // If no turbo tasks context is available, just run the job.
-                    f()
                 }
+                // If no turbo tasks context is available, just run the job.
+                _ => f(),
             };
             *result_cell.lock() = Some(result);
         });
