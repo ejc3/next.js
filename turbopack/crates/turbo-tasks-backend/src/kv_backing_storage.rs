@@ -422,7 +422,24 @@ impl TurboBackingStorage {
         Ok(Some(storage))
     }
 
+    /// Reads the stored `category` for each of `task_ids`, in order. Large batches are split and
+    /// read and decoded in parallel: the batch a task prefetches before it runs again can hold
+    /// every task it read, which for a task over the whole module graph is tens of thousands.
     pub(crate) fn batch_lookup_data(
+        &self,
+        task_ids: &[TaskId],
+        category: SpecificTaskDataCategory,
+    ) -> Result<Vec<Option<TaskStorage>>> {
+        let jobs = parallel_lookup_jobs(
+            task_ids.len(),
+            parallel::available_parallelism().map_or(1, |n| n.get()),
+        );
+        lookup_in_parallel(task_ids, jobs, |chunk| {
+            self.batch_lookup_data_serial(chunk, category)
+        })
+    }
+
+    fn batch_lookup_data_serial(
         &self,
         task_ids: &[TaskId],
         category: SpecificTaskDataCategory,
@@ -466,6 +483,31 @@ impl TurboBackingStorage {
     pub(crate) fn has_unrecoverable_write_error(&self) -> bool {
         self.inner.database.has_unrecoverable_write_error()
     }
+}
+
+/// Below this many keys per job, a batch lookup is not worth splitting.
+const MIN_KEYS_PER_LOOKUP_JOB: usize = 64;
+
+/// How many parallel jobs a batch lookup of `keys` keys uses.
+fn parallel_lookup_jobs(keys: usize, parallelism: usize) -> usize {
+    (keys / MIN_KEYS_PER_LOOKUP_JOB).clamp(1, parallelism.max(1))
+}
+
+/// Runs `lookup` on `jobs` contiguous chunks of `keys` in parallel and concatenates the results,
+/// so the result for each key stays at that key's position.
+fn lookup_in_parallel<K: Sync, V: Send + Sync>(
+    keys: &[K],
+    jobs: usize,
+    lookup: impl Fn(&[K]) -> Result<Vec<V>> + Send + Sync,
+) -> Result<Vec<V>> {
+    // `parallel` needs a Tokio runtime to spawn its helpers on
+    if jobs <= 1 || keys.len() <= 1 || tokio::runtime::Handle::try_current().is_err() {
+        return lookup(keys);
+    }
+    let chunks: Vec<&[K]> = keys.chunks(keys.len().div_ceil(jobs)).collect();
+    let results =
+        parallel::map_collect::<_, _, Result<Vec<_>>>(&chunks, |chunk: &&[K]| lookup(chunk))?;
+    Ok(results.into_iter().flatten().collect())
 }
 
 fn get_next_free_task_id(batch: &TurboWriteBatch<'_>) -> Result<u32, anyhow::Error> {
@@ -645,6 +687,78 @@ mod tests {
             db.shutdown()?;
         }
 
+        Ok(())
+    }
+
+    #[test]
+    fn test_parallel_lookup_jobs() {
+        assert_eq!(parallel_lookup_jobs(0, 8), 1);
+        assert_eq!(parallel_lookup_jobs(127, 8), 1);
+        assert_eq!(parallel_lookup_jobs(128, 8), 2);
+        assert_eq!(parallel_lookup_jobs(100_000, 8), 8);
+        assert_eq!(parallel_lookup_jobs(100_000, 0), 1);
+    }
+
+    /// The results of a split lookup are in key order, and an error from any chunk is returned.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_lookup_in_parallel_keeps_key_order() -> Result<()> {
+        let keys: Vec<u32> = (0..1000).rev().collect();
+        let lookup = |chunk: &[u32]| Ok(chunk.iter().map(|k| k * 2).collect());
+        for jobs in [1, 2, 3, 7, 1000, 5000] {
+            let got = lookup_in_parallel(&keys, jobs, lookup)?;
+            assert_eq!(
+                got,
+                keys.iter().map(|k| k * 2).collect::<Vec<_>>(),
+                "{jobs} jobs"
+            );
+        }
+        let failing = |chunk: &[u32]| {
+            if chunk.contains(&500) {
+                anyhow::bail!("chunk with 500")
+            }
+            Ok(chunk.to_vec())
+        };
+        assert!(lookup_in_parallel(&keys, 4, failing).is_err());
+        Ok(())
+    }
+
+    /// A batch lookup large enough to be split finds, for each requested id in order, the entry
+    /// stored for that id, and `None` for an id that has none.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+    async fn test_split_batch_lookup_matches_stored_ids() -> Result<()> {
+        let tempdir = test_temp_dir()?;
+        let db = TurboKeyValueDatabase::new(tempdir.path().to_path_buf(), TEST_STORAGE_OPTIONS)?;
+        let ids: Vec<TaskId> = (1..=2000u32)
+            .map(|i| TaskId::try_from(i).unwrap())
+            .collect();
+        let stored = |id: TaskId| !(*id).is_multiple_of(3) || (*id).is_multiple_of(7);
+        let mut empty = turbo_bincode::TurboBincodeBuffer::new();
+        TaskStorage::new().encode(
+            SpecificTaskDataCategory::Meta,
+            &mut turbo_bincode::new_turbo_bincode_encoder(&mut empty),
+        )?;
+        let batch = db.write_batch()?;
+        for &id in ids.iter().filter(|&&id| stored(id)) {
+            batch.put(
+                KeySpace::TaskMeta,
+                WriteBuffer::Borrowed(&(*id).to_le_bytes()),
+                WriteBuffer::Borrowed(&empty),
+            )?;
+        }
+        batch.commit()?;
+        let storage = TurboBackingStorage::new_in_memory(db);
+
+        // out of id order and with repeats, so a chunk's results in the wrong place show
+        let mut requested: Vec<TaskId> = ids.iter().rev().copied().collect();
+        requested.extend(ids.iter().step_by(5).copied());
+        assert!(parallel_lookup_jobs(requested.len(), 4) > 1);
+        let found = storage.batch_lookup_data(&requested, SpecificTaskDataCategory::Meta)?;
+        assert_eq!(found.len(), requested.len());
+        for (&id, found) in requested.iter().zip(&found) {
+            assert_eq!(found.is_some(), stored(id), "task {id}");
+        }
+
+        storage.inner.database.shutdown()?;
         Ok(())
     }
 
