@@ -731,7 +731,7 @@ mod tests {
         let ids: Vec<TaskId> = (1..=2000u32)
             .map(|i| TaskId::try_from(i).unwrap())
             .collect();
-        let stored = |id: TaskId| *id % 3 != 0 || *id % 7 == 0;
+        let stored = |id: TaskId| !(*id).is_multiple_of(3) || (*id).is_multiple_of(7);
         let mut empty = turbo_bincode::TurboBincodeBuffer::new();
         TaskStorage::new().encode(
             SpecificTaskDataCategory::Meta,
