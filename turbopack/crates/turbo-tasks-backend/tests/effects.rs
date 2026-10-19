@@ -2,9 +2,12 @@
 #![feature(arbitrary_self_types_pointers)]
 #![allow(clippy::needless_return)] // tokio macro-generated code doesn't respect this
 
-use std::sync::{
-    Arc,
-    atomic::{AtomicU64, Ordering},
+use std::{
+    sync::{
+        Arc, Condvar,
+        atomic::{AtomicU64, Ordering},
+    },
+    time::Duration,
 };
 
 use anyhow::Result;
@@ -37,6 +40,33 @@ struct SharedState {
     /// and `run_apply` (in `apply`).
     #[turbo_tasks(unsafe_ignore)]
     state_storage: EffectStateStorage,
+    /// When set, every `capture` blocks its thread until this many captures have arrived (or a
+    /// timeout passes), the way a capture restoring a cell from disk occupies its thread.
+    #[turbo_tasks(unsafe_ignore)]
+    capture_rendezvous: Option<Rendezvous>,
+}
+
+struct Rendezvous {
+    expected: usize,
+    arrived: std::sync::Mutex<usize>,
+    all_arrived: Condvar,
+    /// Captures that saw all `expected` arrive before the timeout.
+    met: AtomicU64,
+}
+
+impl Rendezvous {
+    fn arrive(&self) {
+        let mut arrived = self.arrived.lock().unwrap();
+        *arrived += 1;
+        self.all_arrived.notify_all();
+        let (arrived, timeout) = self
+            .all_arrived
+            .wait_timeout_while(arrived, Duration::from_secs(5), |n| *n < self.expected)
+            .unwrap();
+        if !timeout.timed_out() && *arrived >= self.expected {
+            self.met.fetch_add(1, Ordering::Relaxed);
+        }
+    }
 }
 
 impl SharedState {
@@ -46,6 +76,22 @@ impl SharedState {
             total_applies: AtomicU64::new(0),
             captures_with_content: AtomicU64::new(0),
             state_storage: EffectStateStorage::default(),
+            capture_rendezvous: None,
+        })
+    }
+
+    fn with_capture_rendezvous(expected: usize) -> Arc<Self> {
+        Arc::new(Self {
+            applies_by_key: Mutex::new(Default::default()),
+            total_applies: AtomicU64::new(0),
+            captures_with_content: AtomicU64::new(0),
+            state_storage: EffectStateStorage::default(),
+            capture_rendezvous: Some(Rendezvous {
+                expected,
+                arrived: std::sync::Mutex::new(0),
+                all_arrived: Condvar::new(),
+                met: AtomicU64::new(0),
+            }),
         })
     }
 
@@ -76,6 +122,9 @@ struct TestEffect {
 #[turbo_tasks::value_impl]
 impl Effect for TestEffect {
     async fn capture(&self) -> Result<Box<dyn CapturedEffect>> {
+        if let Some(rendezvous) = &self.shared.capture_rendezvous {
+            rendezvous.arrive();
+        }
         // Consult storage. If the per-key state already records `Applied { value_hash }`
         // matching our hash, elide content materialization (`content = false`). Otherwise
         // bump the captures-with-content counter (the test's stand-in for a `ReadRef` /
@@ -724,6 +773,40 @@ async fn capture_skip_then_stomp_signals_retry() {
             "recovery capture had to materialize at least once (storage diverged); got {}",
             shared.captures_with_content(),
         );
+
+        anyhow::Ok(())
+    })
+    .await
+    .unwrap()
+}
+
+/// The captures of one `take_effects` run in parallel, not one after another on the calling
+/// future: two captures that each hold their thread until both have arrived both meet. Captured
+/// one after another, the first times out alone.
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn captures_run_in_parallel() {
+    let tt = create_tt();
+    tt.run_once(async move {
+        let shared = SharedState::with_capture_rendezvous(2);
+        let (input, TestInput { spec, .. }) = TestInput::new_with_shared(shared.clone());
+
+        let effects = emit_and_take(
+            &spec,
+            input,
+            vec![(rcstr!("a"), 0xAAAA), (rcstr!("b"), 0xBBBB)],
+        )
+        .await?;
+        let met = shared
+            .capture_rendezvous
+            .as_ref()
+            .unwrap()
+            .met
+            .load(Ordering::Relaxed);
+        assert_eq!(met, 2, "both captures were running at once");
+
+        effects.apply_for_testing().await?;
+        assert_eq!(shared.applies_for(&rcstr!("a")), 1);
+        assert_eq!(shared.applies_for(&rcstr!("b")), 1);
 
         anyhow::Ok(())
     })
