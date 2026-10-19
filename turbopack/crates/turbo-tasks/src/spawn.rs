@@ -11,8 +11,10 @@ use tokio::runtime::Handle;
 use tracing::{Instrument, Span, info_span};
 
 use crate::{
-    TurboTasksPanic, capture_future::CaptureFuture, manager::turbo_tasks_future_scope, turbo_tasks,
-    turbo_tasks_scope,
+    TurboTasksPanic,
+    capture_future::CaptureFuture,
+    manager::{in_current_task, turbo_tasks_future_scope},
+    turbo_tasks, turbo_tasks_scope,
 };
 
 pub struct JoinHandle<T> {
@@ -48,6 +50,21 @@ pub fn spawn<T: Send + 'static>(future: impl Future<Output = T> + Send + 'static
     let span = Span::current();
     let join_handle = tokio::task::spawn(
         turbo_tasks_future_scope(turbo_tasks, CaptureFuture::new(future)).instrument(span),
+    );
+    JoinHandle { join_handle }
+}
+
+/// Like [`spawn`], but the future runs within the current task's execution, as a local task does:
+/// the reads it makes are tracked as the current task's own, and the task does not finish before
+/// the future has completed or been dropped.
+pub(crate) fn spawn_in_current_task<T: Send + 'static>(
+    future: impl Future<Output = T> + Send + 'static,
+) -> JoinHandle<T> {
+    let turbo_tasks = turbo_tasks();
+    let span = Span::current();
+    let join_handle = tokio::task::spawn(
+        turbo_tasks_future_scope(turbo_tasks, in_current_task(CaptureFuture::new(future)))
+            .instrument(span),
     );
     JoinHandle { join_handle }
 }

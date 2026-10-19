@@ -3,7 +3,10 @@ use std::{
     error::Error as StdError,
     future::Future,
     mem::{forget, replace},
-    sync::Arc,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
 };
 
 use anyhow::Result;
@@ -14,15 +17,17 @@ use rustc_hash::FxHashMap;
 use tracing::Instrument;
 
 use crate::{
-    self as turbo_tasks, CollectiblesSource, NonLocalValue, OperationVc, ReadRef, ResolvedVc,
-    TryJoinIterExt, Upcast, VcRead, VcValueType, emit,
+    self as turbo_tasks, CollectiblesSource, JoinIterExt, NonLocalValue, OperationVc, ReadRef,
+    ResolvedVc, Upcast, VcRead, VcValueType, emit,
     event::Event,
     invalidation::{Invalidator, get_invalidator},
     manager::{
         debug_assert_in_top_level_task, debug_assert_not_in_top_level_task, mark_top_level_task,
         unmark_top_level_task_may_leak_eventually_consistent_state, with_turbo_tasks,
     },
+    parallel::available_parallelism,
     spawn,
+    spawn::spawn_in_current_task,
 };
 
 const APPLY_EFFECTS_CONCURRENCY_LIMIT: usize = 1024;
@@ -307,11 +312,43 @@ pub async fn take_effects(source: impl CollectiblesSource) -> Result<Effects> {
     debug_assert_not_in_top_level_task("take_effects");
     let effects = source.take_collectibles::<Box<dyn Effect>>();
 
-    let captured: Vec<Box<dyn CapturedEffect>> = effects
+    // The effects are read and captured by up to one spawned worker per core, each within this
+    // task's execution so the reads stay this task's own: a capture can read cells that have to
+    // be restored from the persistent cache, which on this one future would run one after
+    // another. Each worker takes the next effect not yet taken, and the results keep the
+    // effects' order.
+    let effects: Arc<[ResolvedVc<Box<dyn Effect>>]> = effects.into_iter().collect();
+    let workers = available_parallelism()
+        .map_or(16, |count| count.get())
+        .min(effects.len());
+    let next = Arc::new(AtomicUsize::new(0));
+    let mut results: Vec<Option<Result<Box<dyn CapturedEffect>>>> =
+        (0..effects.len()).map(|_| None).collect();
+    let taken = (0..workers)
+        .map(|_| {
+            let effects = effects.clone();
+            let next = next.clone();
+            spawn_in_current_task(async move {
+                let mut taken = Vec::new();
+                loop {
+                    let index = next.fetch_add(1, Ordering::Relaxed);
+                    let Some(&effect_vc) = effects.get(index) else {
+                        return taken;
+                    };
+                    let captured = async { effect_vc.into_trait_ref().await?.capture().await };
+                    taken.push((index, captured.await));
+                }
+            })
+        })
+        .join()
+        .await;
+    for (index, captured) in taken.into_iter().flatten() {
+        results[index] = Some(captured);
+    }
+    let captured: Vec<Box<dyn CapturedEffect>> = results
         .into_iter()
-        .map(async |effect_vc| effect_vc.into_trait_ref().await?.capture().await)
-        .try_join()
-        .await?;
+        .map(|captured| captured.expect("every effect is taken by a worker"))
+        .collect::<Result<_>>()?;
 
     // detect duplicate keys
     let unique_keys = build_unique_keys(&captured);

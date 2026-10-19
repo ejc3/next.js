@@ -2183,6 +2183,29 @@ pub fn turbo_tasks_future_scope<T>(
     TURBO_TASKS.scope(tt, f)
 }
 
+/// Wraps `f` to run within the current task's execution, as a local task does: it shares the
+/// task's state, so the reads it makes are the task's own, and the task does not finish until the
+/// returned future has completed or been dropped, polled or not.
+pub(crate) fn in_current_task<T>(f: impl Future<Output = T>) -> impl Future<Output = T> {
+    struct InFlight(CurrentTaskStateHandle);
+    impl Drop for InFlight {
+        fn drop(&mut self) {
+            self.0.write().unwrap().local_tasks.decrement_in_flight();
+        }
+    }
+    let global_task_state = CURRENT_TASK_STATE.with(|ts| ts.clone());
+    global_task_state
+        .write()
+        .unwrap()
+        .local_tasks
+        .register_detached();
+    let in_flight = InFlight(global_task_state.clone());
+    CURRENT_TASK_STATE.scope(global_task_state, async move {
+        let _in_flight = in_flight;
+        f.await
+    })
+}
+
 /// Spawns the given future within the context of the current task.
 ///
 /// Beware: this method is not safe to use in production code. It is only
